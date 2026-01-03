@@ -31,26 +31,39 @@ jobs:
       - name: Install npm dependencies
         continue-on-error: false
         run: |
-          # Install all dependencies except canvas first (canvas has compatibility issues with Node.js 22.x)
-          echo "Installing dependencies (excluding canvas for now)..."
-          # Remove canvas from package.json temporarily
-          if [ -f "package.json" ]; then
-            # Use npm install with --ignore-scripts to skip native module builds
-            # This prevents canvas from trying to build during install
-            npm install --legacy-peer-deps --ignore-scripts || true
+          # Install dependencies - canvas may fail to build with Node.js 22.x, but we'll handle it
+          echo "Installing npm dependencies..."
+          # Use npm install (not npm ci) for more flexibility
+          # --legacy-peer-deps handles peer dependency warnings
+          # We'll let it fail on canvas and continue
+          set +e  # Don't exit on error
+          npm install --legacy-peer-deps 2>&1 | tee npm-install.log
+          INSTALL_EXIT_CODE=${PIPESTATUS[0]}
+          
+          # Check if canvas failed specifically
+          if grep -q "canvas" npm-install.log && grep -q "error\|failed" npm-install.log; then
+            echo "⚠️ Canvas package failed to build (expected with Node.js 22.x)"
+            echo "Bot will still work - canvas is only needed for rank/weather commands"
+            # Remove failed canvas installation to avoid conflicts
+            rm -rf node_modules/canvas 2>/dev/null || true
           fi
           
-          # Try to install canvas separately - it will likely fail but that's ok
-          echo "Attempting to install canvas (may fail with Node.js 22.x)..."
-          npm install canvas@^2.11.2 --legacy-peer-deps --ignore-scripts 2>&1 | head -20 || echo "Canvas installation skipped (not compatible with Node.js 22.x, but bot will still work)"
-          
-          # Try to rebuild bcrypt (should work fine)
-          echo "Rebuilding bcrypt..."
-          npm rebuild bcrypt || echo "bcrypt rebuild skipped"
-          
-          # Final check: ensure core dependencies are installed
+          # Verify core dependencies are installed
           echo "Verifying core dependencies..."
-          npm list axios ws3-fca express || echo "Some dependencies may be missing, but continuing..."
+          if [ -d "node_modules/axios" ] && [ -d "node_modules/ws3-fca" ]; then
+            echo "✅ Core dependencies installed successfully"
+          else
+            echo "❌ Critical dependencies missing - checking..."
+            # Try installing core dependencies separately
+            npm install axios ws3-fca express --legacy-peer-deps --save 2>&1 || true
+          fi
+          
+          # Exit with success if core dependencies are present, even if canvas failed
+          if [ -d "node_modules/axios" ]; then
+            exit 0
+          else
+            exit $INSTALL_EXIT_CODE
+          fi
 
       - name: Create account.txt from secret
         run: |
