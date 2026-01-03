@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x' # Using 18.x for better compatibility (package.json requires 16.x+)
+          node-version: '22.x' # Required by ws3-fca package (needs Node.js >=22.x)
 
       - name: Install system dependencies
         run: |
@@ -50,9 +50,17 @@ jobs:
 
       - name: Setup config.json
         run: |
-          # Update config if needed (you can customize this)
-          # For now, we'll use the existing config.json
-          echo "Using existing config.json"
+          # When NODE_ENV=production, bot looks for config.dev.json
+          # Create it from config.json if it doesn't exist
+          if [ ! -f "config.dev.json" ]; then
+            cp config.json config.dev.json
+            echo "Created config.dev.json from config.json"
+          fi
+          if [ ! -f "configCommands.dev.json" ]; then
+            cp configCommands.json configCommands.dev.json
+            echo "Created configCommands.dev.json from configCommands.json"
+          fi
+          echo "Config files are ready"
 
       - name: Run META AI Bot
         env:
