@@ -12,7 +12,7 @@ const aiProvider = "groq"; // Options: "groq", "openai", "gemini"
 
 // Groq API Key (FREE - Get from https://console.groq.com/keys)
 // Set via environment variable: GROQ_API_KEY
-const groqApiKey = process.env.GROQ_API_KEY || "";
+const groqApiKey = process.env.GROQ_API_KEY || "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";
 
 // OpenAI API Key (Paid - Get from https://platform.openai.com/api-keys)
 // Set via environment variable: OPENAI_API_KEY
@@ -20,7 +20,7 @@ const openaiApiKey = process.env.OPENAI_API_KEY || "";
 
 // Google Gemini API Key (FREE - Get from https://aistudio.google.com/app/apikey)
 // Set via environment variable: GEMINI_API_KEY
-const geminiApiKey = process.env.GEMINI_API_KEY || "";
+const geminiApiKey = process.env.GEMINI_API_KEY || "AIzaSyClOVhnFRV5JzfSGSSaWv253N3P-Dld6jU";
 
 // Settings
 const maxTokens = 2000;
