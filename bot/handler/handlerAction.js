@@ -6,12 +6,13 @@ module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, user
 
 	return async function (event) {
 		// Check if the bot is in the inbox and anti inbox is enabled
+		// Only block if antiInbox is explicitly true AND it's a 1:1 chat
 		if (
-			global.GoatBot.config.antiInbox == true &&
-			(event.senderID == event.threadID || event.userID == event.senderID || event.isGroup == false) &&
-			(event.senderID || event.userID || event.isGroup == false)
-		)
+			global.GoatBot.config.antiInbox === true &&
+			(event.isGroup === false || event.senderID == event.threadID)
+		) {
 			return;
+		}
 
 		const message = createFuncMessage(api, event);
 

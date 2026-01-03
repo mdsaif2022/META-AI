@@ -1,7 +1,7 @@
 /**
  * @author NTKhang
  * ! The source code is written by NTKhang, please don't change the author's name everywhere. Thank you for using
- * ! Official source code: https://github.com/ntkhang03/Goat-Bot-V2
+ * ! Official source code: https://github.com/mdsaif2022
  * ! If you do not download the source code from the above address, you are using an unknown version and at risk of having your account hacked
  *
  * English:
@@ -220,42 +220,42 @@ if (config.autoRestart) {
 	// ———————————————— SETUP MAIL ———————————————— //
 	const { gmailAccount } = config.credentials;
 	const { email, clientId, clientSecret, refreshToken } = gmailAccount;
-	const OAuth2 = google.auth.OAuth2;
-	const OAuth2_client = new OAuth2(clientId, clientSecret);
-	OAuth2_client.setCredentials({ refresh_token: refreshToken });
-	let accessToken;
-	try {
-		accessToken = await OAuth2_client.getAccessToken();
-	}
-	catch (err) {
-		throw new Error(getText("Goat", "googleApiTokenExpired"));
-	}
-	const transporter = nodemailer.createTransport({
-		host: 'smtp.gmail.com',
-		service: 'Gmail',
-		auth: {
-			type: 'OAuth2',
-			user: email,
-			clientId,
-			clientSecret,
-			refreshToken,
-			accessToken
+	
+	// Google credentials are optional - only initialize if provided
+	let OAuth2_client = null;
+	let accessToken = null;
+	let transporter = null;
+	
+	if (clientId && clientSecret && refreshToken && email) {
+		try {
+			const OAuth2 = google.auth.OAuth2;
+			OAuth2_client = new OAuth2(clientId, clientSecret);
+			OAuth2_client.setCredentials({ refresh_token: refreshToken });
+			accessToken = await OAuth2_client.getAccessToken();
+			transporter = nodemailer.createTransport({
+				host: 'smtp.gmail.com',
+				service: 'Gmail',
+				auth: {
+					type: 'OAuth2',
+					user: email,
+					clientId,
+					clientSecret,
+					refreshToken,
+					accessToken
+				}
+			});
 		}
-	});
+		catch (err) {
+			log.warn("CREDENTIALS", "Google email credentials provided but failed to initialize. Email features will be disabled.");
+		}
+	} else {
+		log.info("CREDENTIALS", "Google email credentials not provided. Email features will be disabled.");
+	}
 
 	async function sendMail({ to, subject, text, html, attachments }) {
-		const transporter = nodemailer.createTransport({
-			host: 'smtp.gmail.com',
-			service: 'Gmail',
-			auth: {
-				type: 'OAuth2',
-				user: email,
-				clientId,
-				clientSecret,
-				refreshToken,
-				accessToken
-			}
-		});
+		if (!transporter) {
+			throw new Error("Email is not configured. Please provide Google credentials in config.json");
+		}
 		const mailOptions = {
 			from: email,
 			to,
@@ -272,19 +272,31 @@ if (config.autoRestart) {
 	global.utils.transporter = transporter;
 
 	// ———————————————— CHECK VERSION ———————————————— //
-	const { data: { version } } = await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2/main/package.json");
-	const currentVersion = require("./package.json").version;
-	if (compareVersion(version, currentVersion) === 1)
-		utils.log.master("NEW VERSION", getText(
-			"Goat",
-			"newVersionDetected",
-			colors.gray(currentVersion),
-			colors.hex("#eb6a07", version),
-			colors.hex("#eb6a07", "node update")
-		));
+	try {
+		const { data: { version } } = await axios.get("https://raw.githubusercontent.com/mdsaif2022/Goat-Bot-V2/main/package.json");
+		const currentVersion = require("./package.json").version;
+		if (compareVersion(version, currentVersion) === 1)
+			utils.log.master("NEW VERSION", getText(
+				"Goat",
+				"newVersionDetected",
+				colors.gray(currentVersion),
+				colors.hex("#eb6a07", version),
+				colors.hex("#eb6a07", "node update")
+			));
+	} catch (err) {
+		// Version check failed (repository not found, network error, etc.) - silently continue
+		// This allows the bot to run even if the version check fails
+	}
 	// —————————— CHECK FOLDER GOOGLE DRIVE —————————— //
-	const parentIdGoogleDrive = await utils.drive.checkAndCreateParentFolder("GoatBot");
-	utils.drive.parentID = parentIdGoogleDrive;
+	// Only check/create Google Drive folder if Google Drive is configured
+	if (utils.drive.default) {
+		try {
+			const parentIdGoogleDrive = await utils.drive.checkAndCreateParentFolder("GoatBot");
+			utils.drive.parentID = parentIdGoogleDrive;
+		} catch (err) {
+			log.warn("GOOGLE DRIVE", "Failed to check/create Google Drive folder. Google Drive features will be disabled.");
+		}
+	}
 	// ———————————————————— LOGIN ———————————————————— //
 	require(`./bot/login/login${NODE_ENV === 'development' ? '.dev.js' : '.js'}`);
 })();

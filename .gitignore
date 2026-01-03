@@ -13,6 +13,13 @@ checkOriginCodeChanged.js
 *.test.*
 test.js
 
+# Sensitive files - DO NOT COMMIT
+account.txt
+account.dev.txt
+config.json
+config.dev.json
+*.log
+
 database/data/*
 !database/data/.gitkeep
 

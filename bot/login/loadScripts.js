@@ -220,8 +220,18 @@ module.exports = async function (api, threadModel, userModel, dashBoardModel, gl
 		console.log("\r");
 		if (commandError.length > 0) {
 			log.err("LOADED", getText('loadScripts', 'loadScriptsError', colors.yellow(text)));
-			for (const item of commandError)
-				console.log(` ${colors.red('✖ ' + item.name)}: ${item.error.message}\n`, item.error);
+			for (const item of commandError) {
+				// Show cleaner error message for canvas-related errors
+				const isCanvasError = item.error.message && (
+					item.error.message.includes('canvas.node') ||
+					item.error.message.includes('Cannot find module') && item.error.code === 'MODULE_NOT_FOUND'
+				);
+				if (isCanvasError) {
+					console.log(` ${colors.red('✖ ' + item.name)}: ${item.error.message.split('\n')[0]}`);
+				} else {
+					console.log(` ${colors.red('✖ ' + item.name)}: ${item.error.message}\n`, item.error);
+				}
+			}
 		}
 	}
 };

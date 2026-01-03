@@ -73,12 +73,36 @@ module.exports = async function (databaseType, threadModel, api, fakeGraphql) {
 					switch (databaseType) {
 						case "mongodb":
 						case "sqlite": {
-							let dataCreated = await threadModel.create(threadData);
-							dataCreated = databaseType == "mongodb" ?
-								_.omit(dataCreated._doc, ["_id", "__v"]) :
-								dataCreated.get({ plain: true });
-							global.db.allThreadData.push(dataCreated);
-							return _.cloneDeep(dataCreated);
+							try {
+								let dataCreated = await threadModel.create(threadData);
+								dataCreated = databaseType == "mongodb" ?
+									_.omit(dataCreated._doc, ["_id", "__v"]) :
+									dataCreated.get({ plain: true });
+								global.db.allThreadData.push(dataCreated);
+								return _.cloneDeep(dataCreated);
+							} catch (err) {
+								// Handle unique constraint error - thread already exists
+								if (err.name === 'SequelizeUniqueConstraintError' || err.name === 'MongoError' || err.code === 11000) {
+									// Thread already exists, try to get it instead
+									let existingThread;
+									if (databaseType === "mongodb") {
+										existingThread = await threadModel.findOne({ threadID: threadData.threadID }).lean();
+									} else {
+										existingThread = await threadModel.findOne({ where: { threadID: threadData.threadID } });
+									}
+									if (existingThread) {
+										const existingData = databaseType == "mongodb" ?
+											_.omit(existingThread, ["_id", "__v"]) :
+											existingThread.get({ plain: true });
+										// Add to in-memory array if not already there
+										if (!global.db.allThreadData.some(t => t.threadID == threadData.threadID)) {
+											global.db.allThreadData.push(existingData);
+										}
+										return _.cloneDeep(existingData);
+									}
+								}
+								throw err;
+							}
 						}
 						case "json": {
 							const timeCreate = moment.tz().format();

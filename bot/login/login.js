@@ -1,5 +1,5 @@
 // set bash title
-process.stdout.write("\x1b]2;Goat Bot V2 - Made by NTKhang\x1b\x5c");
+process.stdout.write("\x1b]2;META AI - Made by saif vaiya\x1b\x5c");
 const defaultRequire = require;
 
 function decode(text) {
@@ -15,9 +15,15 @@ const path = defaultRequire("path");
 const readline = defaultRequire("readline");
 const fs = defaultRequire("fs-extra");
 const toptp = defaultRequire("totp-generator");
-const login = defaultRequire(`${process.cwd()}/fb-chat-api`);
+const { login: ws3Login } = defaultRequire("ws3-fca");
 const qr = new (defaultRequire("qrcode-reader"));
-const Canvas = defaultRequire("canvas");
+let Canvas = null;
+try {
+	Canvas = defaultRequire("canvas");
+} catch (err) {
+	// Canvas module is optional - only needed for QR code reading from images
+	// Text-based 2FA secrets will still work
+}
 const https = defaultRequire("https");
 
 async function getName(userID) {
@@ -65,22 +71,22 @@ function centerText(text, length) {
 // logo
 const titles = [
 	[
-		"██████╗  ██████╗  █████╗ ████████╗    ██╗   ██╗██████╗",
-		"██╔════╝ ██╔═══██╗██╔══██╗╚══██╔══╝    ██║   ██║╚════██╗",
-		"██║  ███╗██║   ██║███████║   ██║       ██║   ██║ █████╔╝",
-		"██║   ██║██║   ██║██╔══██║   ██║       ╚██╗ ██╔╝██╔═══╝",
-		"╚██████╔╝╚██████╔╝██║  ██║   ██║        ╚████╔╝ ███████╗",
-		"╚═════╝  ╚═════╝ ╚═╝  ╚═╝   ╚═╝         ╚═══╝  ╚══════╝"
+		"███╗   ███╗███████╗████████╗ █████╗     █████╗ ██╗",
+		"████╗ ████║██╔════╝╚══██╔══╝██╔══██╗    ██╔══██╗██║",
+		"██╔████╔██║█████╗     ██║   ███████║    ███████║██║",
+		"██║╚██╔╝██║██╔══╝     ██║   ██╔══██║    ██╔══██║██║",
+		"██║ ╚═╝ ██║███████╗   ██║   ██║  ██║    ██║  ██║██║",
+		"╚═╝     ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝    ╚═╝  ╚═╝╚═╝"
 	],
 	[
-		"█▀▀ █▀█ ▄▀█ ▀█▀  █▄▄ █▀█ ▀█▀  █░█ ▀█",
-		"█▄█ █▄█ █▀█ ░█░  █▄█ █▄█ ░█░  ▀▄▀ █▄"
+		"█▀▄ █▀█ ▀█▀ █▀█  █▀█ █▀",
+		"█▄▀ █▄█ ░█░ █▄█  █▀▄ █▄"
 	],
 	[
-		"G O A T B O T  V 2 @" + currentVersion
+		"M E T A   A I @" + currentVersion
 	],
 	[
-		"GOATBOT V2"
+		"META AI"
 	]
 ];
 const maxWidth = process.stdout.columns;
@@ -98,7 +104,7 @@ for (const text of title) {
 	const textColor = gradient("#FA8BFF", "#2BD2FF", "#2BFF88")(text);
 	centerText(textColor, text.length);
 }
-let subTitle = `GoatBot V2@${currentVersion}- A simple Bot chat messenger use personal account`;
+let subTitle = `META AI@${currentVersion}- A simple Bot chat messenger use personal account`;
 const subTitleArray = [];
 if (subTitle.length > maxWidth) {
 	while (subTitle.length > maxWidth) {
@@ -112,8 +118,8 @@ if (subTitle.length > maxWidth) {
 else {
 	subTitleArray.push(subTitle);
 }
-const author = ("Created by NTKhang with ♡");
-const srcUrl = ("Source code: https://github.com/ntkhang03/Goat-Bot-V2");
+const author = ("Created by saif vaiya with love");
+const srcUrl = ("Source code: https://github.com/mdsaif2022");
 const fakeRelease = ("ALL VERSIONS NOT RELEASED HERE ARE FAKE");
 for (const t of subTitleArray) {
 	const textColor2 = gradient("#9F98E8", "#AFF6CF")(t);
@@ -181,6 +187,9 @@ async function input(prompt, isPassword = false) {
 }
 
 qr.readQrCode = async function (filePath) {
+	if (!Canvas) {
+		throw new Error("Canvas module is not available. Please install canvas dependencies or use text-based 2FA secret instead of QR code image.");
+	}
 	const image = await Canvas.loadImage(filePath);
 	const canvas = Canvas.createCanvas(image.width, image.height);
 	const ctx = canvas.getContext("2d");
@@ -491,10 +500,15 @@ async function getAppStateToLogin(loginWithEmail) {
 					}))
 					.filter(i => i.key && i.value && i.key != "x-referer");
 			}
-			if (!await checkLiveCookie(appState.map(i => i.key + "=" + i.value).join("; "), facebookAccount.userAgent)) {
-				const error = new Error("Cookie is invalid");
-				error.name = "COOKIE_INVALID";
-				throw error;
+			// Optional cookie validation - let ws3-fca try to use cookies even if validation fails
+			// ws3-fca may be able to refresh or handle expired cookies better
+			try {
+				const cookieValid = await checkLiveCookie(appState.map(i => i.key + "=" + i.value).join("; "), facebookAccount.userAgent);
+				if (!cookieValid) {
+					log.warn("LOGIN FACEBOOK", "Cookie validation failed, but will attempt login with ws3-fca anyway");
+				}
+			} catch (err) {
+				log.warn("LOGIN FACEBOOK", "Cookie validation check failed, but will attempt login with ws3-fca anyway");
 			}
 		}
 	}
@@ -661,7 +675,7 @@ async function startBot(loginWithEmail) {
 
 		let isSendNotiErrorMessage = false;
 
-		login({ appState }, global.GoatBot.config.optionsFca, async function (error, api) {
+		ws3Login({ appState }, global.GoatBot.config.optionsFca, async function (error, api) {
 			if (!isNaN(facebookAccount.intervalGetNewCookie) && facebookAccount.intervalGetNewCookie > 0)
 				if (facebookAccount.email && facebookAccount.password) {
 					spin?._stop();
@@ -724,7 +738,7 @@ async function startBot(loginWithEmail) {
 			log.info("BOT ID", `${global.botID} - ${await getName(global.botID)}`);
 			log.info("PREFIX", global.GoatBot.config.prefix);
 			log.info("LANGUAGE", global.GoatBot.config.language);
-			log.info("BOT NICK NAME", global.GoatBot.config.nickNameBot || "GOAT BOT");
+			log.info("BOT NICK NAME", global.GoatBot.config.nickNameBot || "META AI");
 			// ———————————————————— GBAN ————————————————————— //
 			let dataGban;
 
@@ -893,7 +907,7 @@ async function startBot(loginWithEmail) {
 			logColor("#f5ab00", createLine("COPYRIGHT"));
 			// —————————————————— COPYRIGHT INFO —————————————————— //
 			// console.log(`\x1b[1m\x1b[33mCOPYRIGHT:\x1b[0m\x1b[1m\x1b[37m \x1b[0m\x1b[1m\x1b[36mProject GoatBot v2 created by ntkhang03 (https://github.com/ntkhang03), please do not sell this source code or claim it as your own. Thank you!\x1b[0m`);
-			console.log(`\x1b[1m\x1b[33m${("COPYRIGHT:")}\x1b[0m\x1b[1m\x1b[37m \x1b[0m\x1b[1m\x1b[36m${("Project GoatBot v2 created by ntkhang03 (https://github.com/ntkhang03), please do not sell this source code or claim it as your own. Thank you!")}\x1b[0m`);
+			console.log(`\x1b[1m\x1b[33m${("COPYRIGHT:")}\x1b[0m\x1b[1m\x1b[37m \x1b[0m\x1b[1m\x1b[36m${("Project META AI created by saif vaiya (https://github.com/mdsaif2022), based on GoatBot V2 by NTKhang (https://github.com/ntkhang03/Goat-Bot-V2)")}\x1b[0m`);
 			logColor("#f5ab00", character);
 			global.GoatBot.config.adminBot = adminBot;
 			writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
@@ -904,6 +918,19 @@ async function startBot(loginWithEmail) {
 			let intervalCheckLiveCookieAndRelogin = false;
 			// —————————————————— CALLBACK LISTEN —————————————————— //
 			async function callBackListen(error, event) {
+				// Debug: Log ALL events to see if 1:1 messages are being received
+				if (event && event.type === "message") {
+					const isGroupMsg = event.isGroup === true;
+					const isInboxMsg = event.isGroup === false || event.senderID == event.threadID;
+					console.log(colors.magenta("[EVENT RECEIVED]"), 
+						`Type: ${event.type}, ` +
+						`isGroup: ${event.isGroup}, ` +
+						`ThreadID: ${event.threadID}, ` +
+						`SenderID: ${event.senderID}, ` +
+						`Body: ${event.body ? event.body.substring(0, 50) : 'N/A'}`
+					);
+				}
+				
 				if (error) {
 					global.responseUptimeCurrent = responseUptimeError;
 					if (
@@ -1045,9 +1072,16 @@ async function startBot(loginWithEmail) {
 					const participantIDs_ = [...event.participantIDs || []];
 					if (event.participantIDs)
 						event.participantIDs = 'Array(' + event.participantIDs.length + ')';
-
+					
+					// Log additional info for debugging 1:1 messages
+					const isGroupMsg = event.isGroup === true;
+					const isInboxMsg = event.isGroup === false || event.senderID == event.threadID;
+					if (event.type === "message" && !isGroupMsg) {
+						console.log(colors.yellow("[INBOX MESSAGE DETECTED]"), colors.cyan(`ThreadID: ${event.threadID}, SenderID: ${event.senderID}, isGroup: ${event.isGroup}`));
+					}
+					
 					console.log(colors.green((event.type || "").toUpperCase() + ":"), jsonStringifyColor(event, null, 2));
-
+					
 					if (event.participantIDs)
 						event.participantIDs = participantIDs_;
 				}
@@ -1065,9 +1099,13 @@ async function startBot(loginWithEmail) {
 
 				const handlerAction = require("../handler/handlerAction.js")(api, threadModel, userModel, dashBoardModel, globalModel, usersData, threadsData, dashBoardData, globalData);
 
-				if (hasBanned === false)
-					handlerAction(event);
-				else
+				if (hasBanned === false) {
+					try {
+						await handlerAction(event);
+					} catch (err) {
+						log.err("HANDLER_ACTION", "Error in handlerAction", err);
+					}
+				} else
 					return log.err('GBAN', getText('login', 'youAreBanned'));
 			}
 			// ————————————————— CREATE CALLBACK ————————————————— //

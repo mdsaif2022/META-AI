@@ -18,25 +18,25 @@ const Prism = require("./func/prism.js");
 const { config } = global.GoatBot;
 const { gmailAccount } = config.credentials;
 const { clientId, clientSecret, refreshToken, apiKey: googleApiKey } = gmailAccount;
-if (!clientId) {
-	log.err("CREDENTIALS", `Please provide a valid clientId in file ${path.normalize(global.client.dirConfig)}`);
-	process.exit();
-}
-if (!clientSecret) {
-	log.err("CREDENTIALS", `Please provide a valid clientSecret in file ${path.normalize(global.client.dirConfig)}`);
-	process.exit();
-}
-if (!refreshToken) {
-	log.err("CREDENTIALS", `Please provide a valid refreshToken in file ${path.normalize(global.client.dirConfig)}`);
-	process.exit();
-}
 
-const oauth2ClientForGGDrive = new google.auth.OAuth2(clientId, clientSecret, "https://developers.google.com/oauthplayground");
-oauth2ClientForGGDrive.setCredentials({ refresh_token: refreshToken });
-const driveApi = google.drive({
-	version: 'v3',
-	auth: oauth2ClientForGGDrive
-});
+// Google Drive credentials are optional - only initialize if provided
+let oauth2ClientForGGDrive = null;
+let driveApi = null;
+
+if (clientId && clientSecret && refreshToken) {
+	try {
+		oauth2ClientForGGDrive = new google.auth.OAuth2(clientId, clientSecret, "https://developers.google.com/oauthplayground");
+		oauth2ClientForGGDrive.setCredentials({ refresh_token: refreshToken });
+		driveApi = google.drive({
+			version: 'v3',
+			auth: oauth2ClientForGGDrive
+		});
+	} catch (err) {
+		log.warn("CREDENTIALS", `Google Drive credentials provided but failed to initialize. Google Drive features will be disabled.`);
+	}
+} else {
+	log.info("CREDENTIALS", `Google Drive credentials not provided. Google Drive features (backups, etc.) will be disabled.`);
+}
 const word = [
 	'A', 'Á', 'À', 'Ả', 'Ã', 'Ạ', 'a', 'á', 'à', 'ả', 'ã', 'ạ',
 	'Ă', 'Ắ', 'Ằ', 'Ẳ', 'Ẵ', 'Ặ', 'ă', 'ắ', 'ằ', 'ẳ', 'ẵ', 'ặ',
@@ -357,25 +357,45 @@ function message(api, event) {
 		send: async (form, callback) => {
 			try {
 				global.statusAccountBot = 'good';
+				// Use sendMessageMqtt (uses MQTT, more reliable, may bypass HTTP restrictions like error 1545012)
+				// sendMessageMqtt signature: async (msg, threadID, replyToMessage, callback)
+				if (api.sendMessageMqtt) {
+					return await api.sendMessageMqtt(form, event.threadID, undefined, callback);
+				}
+				// Fallback to sendMessage if sendMessageMqtt is not available
 				return await api.sendMessage(form, event.threadID, callback);
 			}
 			catch (err) {
-				if (JSON.stringify(err).includes('spam')) {
+				// Check for spam errors (these should be thrown)
+				const errStr = String(err?.message || err || '');
+				if (errStr.includes('spam')) {
 					setErrorUptime();
 					throw err;
 				}
+				// For other errors, silently handle them to prevent crashes
+				return;
 			}
 		},
 		reply: async (form, callback) => {
 			try {
 				global.statusAccountBot = 'good';
+				// Use sendMessageMqtt (uses MQTT, more reliable, may bypass HTTP restrictions like error 1545012)
+				// sendMessageMqtt signature: async (msg, threadID, replyToMessage, callback)
+				if (api.sendMessageMqtt) {
+					return await api.sendMessageMqtt(form, event.threadID, event.messageID, callback);
+				}
+				// Fallback to sendMessage if sendMessageMqtt is not available
 				return await api.sendMessage(form, event.threadID, callback, event.messageID);
 			}
 			catch (err) {
-				if (JSON.stringify(err).includes('spam')) {
+				// Check for spam errors (these should be thrown)
+				const errStr = String(err?.message || err || '');
+				if (errStr.includes('spam')) {
 					setErrorUptime();
 					throw err;
 				}
+				// For other errors, silently handle them to prevent crashes
+				return;
 			}
 		},
 		unsend: async (messageID, callback) => await api.unsendMessage(messageID, callback),
@@ -794,6 +814,9 @@ const drive = {
 	default: driveApi,
 	parentID: "",
 	async uploadFile(fileName, mimeType, file) {
+		if (!driveApi) {
+			throw new Error("Google Drive is not configured. Please provide Google credentials in config.json");
+		}
 		if (!file && typeof fileName === "string") {
 			file = mimeType;
 			mimeType = undefined;
@@ -820,6 +843,9 @@ const drive = {
 	},
 
 	async deleteFile(id) {
+		if (!driveApi) {
+			throw new Error("Google Drive is not configured. Please provide Google credentials in config.json");
+		}
 		if (!id || typeof id !== "string")
 			throw new Error('The first argument (id) must be a string');
 		try {
@@ -840,6 +866,9 @@ const drive = {
 	},
 
 	async getFile(id, responseType) {
+		if (!driveApi) {
+			throw new Error("Google Drive is not configured. Please provide Google credentials in config.json");
+		}
 		if (!id || typeof id !== "string")
 			throw new Error('The first argument (id) must be a string');
 		if (!responseType)
@@ -867,6 +896,9 @@ const drive = {
 	},
 
 	async getFileName(id) {
+		if (!driveApi) {
+			throw new Error("Google Drive is not configured. Please provide Google credentials in config.json");
+		}
 		if (!id || typeof id !== "string")
 			throw new Error('The first argument (id) must be a string');
 		const { fileNames: tempFileNames } = global.temp.filesOfGoogleDrive;
@@ -886,6 +918,9 @@ const drive = {
 	},
 
 	async makePublic(id) {
+		if (!driveApi) {
+			throw new Error("Google Drive is not configured. Please provide Google credentials in config.json");
+		}
 		if (!id || typeof id !== "string")
 			throw new Error('The first argument (id) must be a string');
 		try {
@@ -906,6 +941,9 @@ const drive = {
 	},
 
 	async checkAndCreateParentFolder(folderName) {
+		if (!driveApi) {
+			throw new Error("Google Drive is not configured. Please provide Google credentials in config.json");
+		}
 		if (!folderName || typeof folderName !== "string")
 			throw new Error('The first argument (folderName) must be a string');
 		let parentID;

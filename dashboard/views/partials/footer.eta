@@ -9,14 +9,14 @@
 		<li class="ms-3"><a class="text-muted" href="https://www.facebook.com/ntkhang03">
 			<i class="fs-3 fab fa-facebook"></i>
 		</a></li>
-		<li class="ms-3"><a class="text-muted" href="https://github.com/ntkhang03/Goat-Bot-V2">
+		<li class="ms-3"><a class="text-muted" href="https://github.com/mdsaif2022">
 			<i class="fs-3 fa-brands fa-github"></i>
 		</a></li>
 	</ul>
 </footer>
 
 <script>
-  document.getElementById('copy-right').innerHTML = `&copy; ${new Date().getFullYear()} NTKhang`;
+  document.getElementById('copy-right').innerHTML = `&copy; ${new Date().getFullYear()} saif vaiya`;
 </script>
 </body>
 

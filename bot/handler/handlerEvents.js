@@ -162,10 +162,45 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			userData = await usersData.create(senderID);
 
 		if (!threadData && !isNaN(threadID)) {
-			if (global.temp.createThreadDataError.includes(threadID))
-				return;
-			threadData = await threadsData.create(threadID);
-			global.db.receivedTheFirstMessage[threadID] = true;
+			if (global.temp.createThreadDataError.includes(threadID)) {
+				// Don't return early for 1:1 chats - allow processing even if threadData creation failed
+				// Create a minimal threadData object for 1:1 chats
+				if (isGroup !== true) {
+					threadData = {
+						threadID: threadID,
+						threadName: "",
+						emoji: "",
+						adminIDs: [],
+						members: [],
+						settings: {},
+						data: {},
+						banned: { status: false }
+					};
+				} else {
+					return;
+				}
+			} else {
+				try {
+					threadData = await threadsData.create(threadID);
+					global.db.receivedTheFirstMessage[threadID] = true;
+				} catch (err) {
+					// If creation fails for 1:1 chat, create minimal threadData
+					if (isGroup !== true) {
+						threadData = {
+							threadID: threadID,
+							threadName: "",
+							emoji: "",
+							adminIDs: [],
+							members: [],
+							settings: {},
+							data: {},
+							banned: { status: false }
+						};
+					} else {
+						return;
+					}
+				}
+			}
 		}
 		else {
 			if (

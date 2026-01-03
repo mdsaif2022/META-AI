@@ -237,12 +237,18 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
 						message: `The first argument (userID) must be a number, not ${typeof userID}`
 					});
 				}
-				userInfo = userInfo || (await api.getUserInfo(userID))[userID];
+				try {
+					userInfo = userInfo || (await api.getUserInfo(userID))[userID];
+				} catch (err) {
+					// If getUserInfo fails, use default values
+					userInfo = null;
+				}
+				// Use default values if userInfo is not available
 				let userData = {
 					userID,
-					name: userInfo.name,
-					gender: userInfo.gender,
-					vanity: userInfo.vanity,
+					name: userInfo?.name || `User_${userID}`,
+					gender: userInfo?.gender || null,
+					vanity: userInfo?.vanity || null,
 					exp: 0,
 					money: 0,
 					banned: {},
@@ -286,12 +292,21 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
 						});
 					}
 					const infoUser = await get_(userID);
-					updateInfoUser = updateInfoUser || (await api.getUserInfo(userID))[userID];
+					try {
+						updateInfoUser = updateInfoUser || (await api.getUserInfo(userID))[userID];
+					} catch (err) {
+						// If getUserInfo fails, keep existing data
+						updateInfoUser = null;
+					}
 
-					const newData = {
+					const newData = updateInfoUser ? {
 						name: updateInfoUser.name,
 						vanity: updateInfoUser.vanity,
 						gender: updateInfoUser.gender
+					} : {
+						name: infoUser.name,
+						vanity: infoUser.vanity,
+						gender: infoUser.gender
 					};
 					let userData = {
 						...infoUser,

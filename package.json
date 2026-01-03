@@ -1,7 +1,7 @@
 {
 	"name": "goat-bot-v2",
 	"version": "1.5.35",
-	"description": "A simple Bot chat messenger using personal account. Made by NTKhang.",
+	"description": "A simple Bot chat messenger using personal account. Made by saif vaiya.",
 	"main": "index.js",
 	"engines": {
 		"node": "16.x",
@@ -44,27 +44,28 @@
 		"searchitunes": "^2.5.4",
 		"sequelize": "^6.19.0",
 		"socket.io": "^4.5.1",
-		"sqlite3": "^5.0.5",
+		"sqlite3": "^5.1.7",
 		"tinyurl": "^1.1.7",
 		"totp-generator": "^0.0.13",
-		"websocket-stream": "^5.5.2"
+		"websocket-stream": "^5.5.2",
+		"ws3-fca": "github:NethWs3Dev/ws3-fca"
 	},
 	"scripts": {
 		"start": "set NODE_ENV=&& node index.js",
 		"dev": "set NODE_ENV=development&& node index.js",
 		"prod": "set NODE_ENV=production&& node index.js"
 	},
-	"author": "NTKhang",
+	"author": "saif vaiya",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/ntkhang03/Goat-Bot-V2.git"
+		"url": "git+https://github.com/mdsaif2022/Goat-Bot-V2.git"
 	},
 	"keywords": [],
 	"bugs": {
-		"url": "https://github.com/ntkhang03/Goat-Bot-V2/issues"
+		"url": "https://github.com/mdsaif2022/Goat-Bot-V2/issues"
 	},
-	"homepage": "https://github.com/ntkhang03/Goat-Bot-V2#readme",
+	"homepage": "https://github.com/mdsaif2022/Goat-Bot-V2#readme",
 	"devDependencies": {
 		"eslint": "^8.2.0",
 		"eslint-config-airbnb": "^19.0.4",

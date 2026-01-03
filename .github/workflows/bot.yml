@@ -1,0 +1,80 @@
+name: META AI Bot
+
+on:
+  workflow_dispatch: # Allows manual trigger
+  push:
+    branches: [ main, master ]
+  schedule:
+    # Run every 5.5 hours to avoid hitting the 6-hour limit
+    # GitHub Actions free tier limit is 6 hours per run
+    - cron: '0 */6 * * *'
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # 6 hours max (GitHub Actions free tier limit)
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x' # Using 18.x for better compatibility (package.json requires 16.x+)
+          cache: 'npm'
+          cache-dependency-path: Goat-Bot-V2/package-lock.json
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3 python3-pip libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
+
+      - name: Install npm dependencies
+        working-directory: ./Goat-Bot-V2
+        run: |
+          npm ci
+          # Try to rebuild native modules (canvas, bcrypt) - may fail but bot will still work
+          npm rebuild canvas bcrypt || true
+
+      - name: Create account.txt from secret
+        working-directory: ./Goat-Bot-V2
+        run: |
+          if [ -n "${{ secrets.APPSTATE }}" ]; then
+            echo "${{ secrets.APPSTATE }}" > account.txt
+            echo "account.txt created from APPSTATE secret"
+          elif [ -n "${{ secrets.ACCOUNT_TXT }}" ]; then
+            echo "${{ secrets.ACCOUNT_TXT }}" > account.txt
+            echo "account.txt created from ACCOUNT_TXT secret"
+          else
+            echo "Warning: Neither APPSTATE nor ACCOUNT_TXT secret is set."
+            echo "Bot will try to login with email/password from config.json if available."
+            echo "For best results, set APPSTATE secret with your appState JSON array."
+          fi
+
+      - name: Setup config.json
+        working-directory: ./Goat-Bot-V2
+        run: |
+          # Update config if needed (you can customize this)
+          # For now, we'll use the existing config.json
+          echo "Using existing config.json"
+
+      - name: Run META AI Bot
+        working-directory: ./Goat-Bot-V2
+        env:
+          NODE_ENV: production
+        run: |
+          echo "Starting META AI Bot..."
+          npm start
+        continue-on-error: true # Continue even if bot crashes to see logs
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-logs
+          path: |
+            Goat-Bot-V2/*.log
+            Goat-Bot-V2/logs/
+          retention-days: 7
+
