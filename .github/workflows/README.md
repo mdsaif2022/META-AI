@@ -46,6 +46,16 @@ This guide will help you set up the META AI Bot to run on GitHub Actions.
    - EAAAA token
    - Email/password (2 lines)
 
+   **Option C: AI API Keys (Optional - for AI command)**
+   - **Name**: `GROQ_API_KEY` (Recommended - FREE)
+     - **Value**: Get from https://console.groq.com/keys
+   - **Name**: `OPENAI_API_KEY` (Optional - Paid)
+     - **Value**: Get from https://platform.openai.com/api-keys
+   - **Name**: `GEMINI_API_KEY` (Optional - FREE)
+     - **Value**: Get from https://aistudio.google.com/app/apikey
+   
+   **Note**: At least one AI API key is recommended if you want to use the AI command. Groq is recommended as it's free and fast.
+
 ### Step 3: Configure Workflow (Optional)
 
 The workflow is set to:
