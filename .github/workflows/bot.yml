@@ -31,16 +31,17 @@ jobs:
       - name: Install npm dependencies
         continue-on-error: false
         run: |
+          set +e  # Don't exit on error immediately
+          
           # Install dependencies - canvas may fail to build with Node.js 22.x
           echo "Installing npm dependencies..."
-          
-          # Install dependencies, allowing canvas to fail
-          npm install --legacy-peer-deps || EXIT_CODE=$?
+          npm install --legacy-peer-deps
+          NPM_EXIT=$?
           
           # Check if critical dependencies are installed
           if [ ! -d "node_modules/axios" ] || [ ! -d "node_modules/ws3-fca" ]; then
             echo "Critical dependencies missing, trying to install them..."
-            npm install axios ws3-fca express --legacy-peer-deps --save || true
+            npm install axios ws3-fca express --legacy-peer-deps --save
           fi
           
           # Remove canvas if it failed (it's not critical for bot operation)
@@ -51,14 +52,13 @@ jobs:
           fi
           
           # Verify core dependencies
-          if [ -d "node_modules/axios" ] && [ -d "node_modules/ws3-fca" ]; then
-            echo "✅ Core dependencies installed successfully"
-          else
+          set -e  # Exit on error for this check
+          if [ ! -d "node_modules/axios" ] || [ ! -d "node_modules/ws3-fca" ]; then
             echo "❌ ERROR: Critical dependencies are missing!"
             exit 1
           fi
           
-          # Exit successfully even if npm install had errors (as long as core deps are present)
+          echo "✅ Core dependencies installed successfully"
           exit 0
 
       - name: Create account.txt from secret
