@@ -22,8 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18.x' # Using 18.x for better compatibility (package.json requires 16.x+)
-          cache: 'npm'
-          cache-dependency-path: Goat-Bot-V2/package-lock.json
 
       - name: Install system dependencies
         run: |
