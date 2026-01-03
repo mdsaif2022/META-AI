@@ -31,39 +31,35 @@ jobs:
       - name: Install npm dependencies
         continue-on-error: false
         run: |
-          # Install dependencies - canvas may fail to build with Node.js 22.x, but we'll handle it
+          # Install dependencies - canvas may fail to build with Node.js 22.x
           echo "Installing npm dependencies..."
-          # Use npm install (not npm ci) for more flexibility
-          # --legacy-peer-deps handles peer dependency warnings
-          # We'll let it fail on canvas and continue
-          set +e  # Don't exit on error
-          npm install --legacy-peer-deps 2>&1 | tee npm-install.log
-          INSTALL_EXIT_CODE=${PIPESTATUS[0]}
           
-          # Check if canvas failed specifically
-          if grep -q "canvas" npm-install.log && grep -q "error\|failed" npm-install.log; then
-            echo "⚠️ Canvas package failed to build (expected with Node.js 22.x)"
+          # Install dependencies, allowing canvas to fail
+          npm install --legacy-peer-deps || EXIT_CODE=$?
+          
+          # Check if critical dependencies are installed
+          if [ ! -d "node_modules/axios" ] || [ ! -d "node_modules/ws3-fca" ]; then
+            echo "Critical dependencies missing, trying to install them..."
+            npm install axios ws3-fca express --legacy-peer-deps --save || true
+          fi
+          
+          # Remove canvas if it failed (it's not critical for bot operation)
+          if [ ! -d "node_modules/canvas" ] || [ ! -f "node_modules/canvas/build/Release/canvas.node" ]; then
+            echo "⚠️ Canvas package unavailable (expected with Node.js 22.x)"
             echo "Bot will still work - canvas is only needed for rank/weather commands"
-            # Remove failed canvas installation to avoid conflicts
             rm -rf node_modules/canvas 2>/dev/null || true
           fi
           
-          # Verify core dependencies are installed
-          echo "Verifying core dependencies..."
+          # Verify core dependencies
           if [ -d "node_modules/axios" ] && [ -d "node_modules/ws3-fca" ]; then
             echo "✅ Core dependencies installed successfully"
           else
-            echo "❌ Critical dependencies missing - checking..."
-            # Try installing core dependencies separately
-            npm install axios ws3-fca express --legacy-peer-deps --save 2>&1 || true
+            echo "❌ ERROR: Critical dependencies are missing!"
+            exit 1
           fi
           
-          # Exit with success if core dependencies are present, even if canvas failed
-          if [ -d "node_modules/axios" ]; then
-            exit 0
-          else
-            exit $INSTALL_EXIT_CODE
-          fi
+          # Exit successfully even if npm install had errors (as long as core deps are present)
+          exit 0
 
       - name: Create account.txt from secret
         run: |
