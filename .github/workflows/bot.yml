@@ -29,14 +29,12 @@ jobs:
           sudo apt-get install -y build-essential python3 python3-pip libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
 
       - name: Install npm dependencies
-        working-directory: ./Goat-Bot-V2
         run: |
           npm ci
           # Try to rebuild native modules (canvas, bcrypt) - may fail but bot will still work
           npm rebuild canvas bcrypt || true
 
       - name: Create account.txt from secret
-        working-directory: ./Goat-Bot-V2
         run: |
           if [ -n "${{ secrets.APPSTATE }}" ]; then
             echo "${{ secrets.APPSTATE }}" > account.txt
@@ -51,14 +49,12 @@ jobs:
           fi
 
       - name: Setup config.json
-        working-directory: ./Goat-Bot-V2
         run: |
           # Update config if needed (you can customize this)
           # For now, we'll use the existing config.json
           echo "Using existing config.json"
 
       - name: Run META AI Bot
-        working-directory: ./Goat-Bot-V2
         env:
           NODE_ENV: production
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -75,7 +71,7 @@ jobs:
         with:
           name: bot-logs
           path: |
-            Goat-Bot-V2/*.log
-            Goat-Bot-V2/logs/
+            *.log
+            logs/
           retention-days: 7
 
