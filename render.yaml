@@ -2,7 +2,7 @@ services:
   - type: web
     name: goat-bot-v2
     runtime: node
-    buildCommand: npm install
+    buildCommand: npm install && node create-account-file.js
     startCommand: node index.js
     plan: free
     envVars:

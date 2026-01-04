@@ -51,10 +51,13 @@
 		"ws3-fca": "github:NethWs3Dev/ws3-fca"
 	},
 	"scripts": {
+		"prestart": "node create-account-file.js",
 		"start": "node index.js",
 		"start:windows": "set NODE_ENV=&& node index.js",
+		"predev": "node create-account-file.js",
 		"dev": "NODE_ENV=development node index.js",
 		"dev:windows": "set NODE_ENV=development&& node index.js",
+		"preprod": "node create-account-file.js",
 		"prod": "NODE_ENV=production node index.js",
 		"prod:windows": "set NODE_ENV=production&& node index.js"
 	},

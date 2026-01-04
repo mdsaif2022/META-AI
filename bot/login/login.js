@@ -241,7 +241,7 @@ global.responseUptimeError = responseUptimeError;
 
 global.statusAccountBot = 'good';
 let changeFbStateByCode = false;
-let latestChangeContentAccount = fs.statSync(dirAccount).mtimeMs;
+let latestChangeContentAccount = existsSync(dirAccount) ? fs.statSync(dirAccount).mtimeMs : 0;
 let dashBoardIsRunning = false;
 
 
