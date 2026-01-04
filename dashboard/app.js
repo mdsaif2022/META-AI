@@ -49,29 +49,36 @@ module.exports = async (api) => {
 		refreshToken
 	} = gmailAccount;
 
-	const OAuth2 = google.auth.OAuth2;
-	const OAuth2_client = new OAuth2(clientId, clientSecret);
-	OAuth2_client.setCredentials({ refresh_token: refreshToken });
-	let accessToken;
-	try {
-		accessToken = await OAuth2_client.getAccessToken();
-	}
-	catch (err) {
-		throw new Error(getText("Goat", "googleApiRefreshTokenExpired"));
-	}
+	// Make Google OAuth optional - dashboard can run without email functionality
+	let transporter = null;
+	if (email && clientId && clientSecret && refreshToken) {
+		try {
+			const OAuth2 = google.auth.OAuth2;
+			const OAuth2_client = new OAuth2(clientId, clientSecret);
+			OAuth2_client.setCredentials({ refresh_token: refreshToken });
+			const accessToken = await OAuth2_client.getAccessToken();
 
-	const transporter = nodemailer.createTransport({
-		host: "smtp.gmail.com",
-		service: "Gmail",
-		auth: {
-			type: "OAuth2",
-			user: email,
-			clientId,
-			clientSecret,
-			refreshToken,
-			accessToken
+			transporter = nodemailer.createTransport({
+				host: "smtp.gmail.com",
+				service: "Gmail",
+				auth: {
+					type: "OAuth2",
+					user: email,
+					clientId,
+					clientSecret,
+					refreshToken,
+					accessToken
+				}
+			});
 		}
-	});
+		catch (err) {
+			utils.log.warn("DASHBOARD", `Google OAuth credentials invalid or expired. Email features will be disabled. Error: ${err.message}`);
+			transporter = null;
+		}
+	}
+	else {
+		utils.log.warn("DASHBOARD", "Google OAuth credentials not provided. Email features will be disabled.");
+	}
 
 
 	const {
