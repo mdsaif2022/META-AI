@@ -7,7 +7,9 @@ createVersion.js
 createVersionAndCommit.js
 checkOriginCodeChanged.js
 *.zip
-*.dev.*
+# *.dev.* - Commented out to allow config.dev.json and configCommands.dev.json for deployment
+# But still ignore: account.dev.txt (contains sensitive data)
+account.dev.txt
 *.rar
 *test.*
 *.test.*
@@ -17,7 +19,8 @@ test.js
 account.txt
 account.dev.txt
 config.json
-config.dev.json
+# config.dev.json - ALLOWED (needed for Render deployment, contains template values)
+# configCommands.dev.json - ALLOWED (needed for Render deployment, contains template values)
 *.log
 
 database/data/*
