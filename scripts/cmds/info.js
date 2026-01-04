@@ -59,12 +59,12 @@ module.exports = {
 async function sendInfo(message, getLang) {
 	// Customize these values with your information
 	const developerInfo = {
-		name: "Your Name", // Change this to your name
-		email: "your.email@example.com", // Change this to your email
-		facebook: "https://www.facebook.com/yourprofile", // Change this to your Facebook profile
-		website: "https://yourwebsite.com", // Change this to your website
-		contact: "your.contact@example.com", // Change this to your contact email
-		imageUrl: "https://example.com/your-image.jpg" // Change this to your image URL
+		name: "SAIF VAIYA", // Change this to your name
+		email: "boraborsaifuddinvaiya@gmail.com", // Change this to your email
+		facebook: "https://www.facebook.com/lovesaifvaiya", // Change this to your Facebook profile
+		website: "https://freemediabuzz.com", // Change this to your website
+		contact: "boraborsaifuddinvaiya@gmail.com", // Change this to your contact email
+		imageUrl: "https://i.postimg.cc/L8WWyTZg/IMG-4983.jpg" // Change this to your image URL
 	};
 
 	try {

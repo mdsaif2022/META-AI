@@ -11,15 +11,15 @@ const axios = require('axios');
 const aiProvider = "groq"; // Options: "groq", "openai", "gemini"
 
 // Groq API Key (FREE - Get from https://console.groq.com/keys)
-// Set via environment variable: GROQ_API_KEY
+// Priority: Environment variable > Hardcoded fallback
 const groqApiKey = process.env.GROQ_API_KEY || "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";
 
 // OpenAI API Key (Paid - Get from https://platform.openai.com/api-keys)
-// Set via environment variable: OPENAI_API_KEY
-const openaiApiKey = process.env.OPENAI_API_KEY || "..";
+// Priority: Environment variable > Hardcoded fallback
+const openaiApiKey = process.env.OPENAI_API_KEY || "";
 
 // Google Gemini API Key (FREE - Get from https://aistudio.google.com/app/apikey)
-// Set via environment variable: GEMINI_API_KEY
+// Priority: Environment variable > Hardcoded fallback
 const geminiApiKey = process.env.GEMINI_API_KEY || "AIzaSyClOVhnFRV5JzfSGSSaWv253N3P-Dld6jU";
 
 // Settings
@@ -76,8 +76,11 @@ module.exports = {
 	// Works with prefix in groups (e.g., -AI <message>)
 	onStart: async function ({ message, event, args, getLang }) {
 		const apiKey = getApiKey();
-		if (!apiKey)
+		// Debug: Check if API key is available
+		if (!apiKey || apiKey.length === 0) {
+			console.error("[AI Command] No API key found. Groq:", !!groqApiKey, "Gemini:", !!geminiApiKey, "OpenAI:", !!openaiApiKey);
 			return message.reply(getLang('apiKeyEmpty'));
+		}
 
 		// Handle clear command
 		if (args[0] && args[0].toLowerCase() === 'clear') {
@@ -142,18 +145,23 @@ module.exports = {
 };
 
 function getApiKey() {
+	// Debug: Log available keys (without showing full key)
+	const hasGroq = groqApiKey && groqApiKey.length > 0;
+	const hasOpenAI = openaiApiKey && openaiApiKey.length > 0;
+	const hasGemini = geminiApiKey && geminiApiKey.length > 0;
+	
 	switch (aiProvider.toLowerCase()) {
 		case "groq":
-			return groqApiKey;
+			return groqApiKey || "";
 		case "openai":
-			return openaiApiKey;
+			return openaiApiKey || "";
 		case "gemini":
-			return geminiApiKey;
+			return geminiApiKey || "";
 		default:
 			// Try to use any available key
-			if (groqApiKey) return groqApiKey;
-			if (openaiApiKey) return openaiApiKey;
-			if (geminiApiKey) return geminiApiKey;
+			if (groqApiKey && groqApiKey.length > 0) return groqApiKey;
+			if (openaiApiKey && openaiApiKey.length > 0) return openaiApiKey;
+			if (geminiApiKey && geminiApiKey.length > 0) return geminiApiKey;
 			return "";
 	}
 }

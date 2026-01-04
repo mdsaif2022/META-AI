@@ -4,7 +4,7 @@
 	"description": "A simple Bot chat messenger using personal account. Made by saif vaiya.",
 	"main": "index.js",
 	"engines": {
-		"node": "16.x",
+		"node": ">=20.x",
 		"npm": ">=7.0.0"
 	},
 	"dependencies": {
@@ -51,9 +51,12 @@
 		"ws3-fca": "github:NethWs3Dev/ws3-fca"
 	},
 	"scripts": {
-		"start": "set NODE_ENV=&& node index.js",
-		"dev": "set NODE_ENV=development&& node index.js",
-		"prod": "set NODE_ENV=production&& node index.js"
+		"start": "node index.js",
+		"start:windows": "set NODE_ENV=&& node index.js",
+		"dev": "NODE_ENV=development node index.js",
+		"dev:windows": "set NODE_ENV=development&& node index.js",
+		"prod": "NODE_ENV=production node index.js",
+		"prod:windows": "set NODE_ENV=production&& node index.js"
 	},
 	"author": "saif vaiya",
 	"license": "MIT",

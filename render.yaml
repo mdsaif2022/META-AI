@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: goat-bot-v2
+    runtime: node
+    buildCommand: npm install
+    startCommand: node index.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Add your environment variables here in Render dashboard instead
+      # Example variables you might need (configure in Render dashboard):
+      # - GROQ_API_KEY (if using Groq AI)
+      # - OPENAI_API_KEY (if using OpenAI)
+      # - GEMINI_API_KEY (if using Gemini AI)
+      # - MONGODB_URI (if using MongoDB database)
+    healthCheckPath: /
+    # Note: This is a background worker/service, not a web server
+    # Render will keep it running 24/7 on free tier (with some limitations)
+
