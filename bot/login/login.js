@@ -664,6 +664,10 @@ async function startBot(loginWithEmail) {
 	log.info("LOGIN FACEBOOK", getText('login', 'currentlyLogged'));
 
 	let appState = await getAppStateToLogin(loginWithEmail);
+	if (!appState || !Array.isArray(appState)) {
+		log.err("LOGIN FACEBOOK", "Failed to get app state. Please check your account file or email/password in config.");
+		process.exit(1);
+	}
 	changeFbStateByCode = true;
 	appState = filterKeysAppState(appState);
 	writeFileSync(dirAccount, JSON.stringify(appState, null, 2));
