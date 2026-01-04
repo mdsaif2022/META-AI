@@ -232,7 +232,10 @@ function checkAndTrimString(string) {
 }
 
 function filterKeysAppState(appState) {
-	return appState.filter(item => ["c_user", "xs", "datr", "fr", "sb", "i_user"].includes(item.key));
+	if (!appState || !Array.isArray(appState)) {
+		return [];
+	}
+	return appState.filter(item => item && item.key && ["c_user", "xs", "datr", "fr", "sb", "i_user"].includes(item.key));
 }
 
 global.responseUptimeCurrent = responseUptimeSuccess;
@@ -409,8 +412,15 @@ async function getAppStateToLogin(loginWithEmail) {
 	let appState = [];
 	if (loginWithEmail)
 		return await getAppStateFromEmail(undefined, facebookAccount);
-	if (!existsSync(dirAccount))
-		return log.error("LOGIN FACEBOOK", getText('login', 'notFoundDirAccount', colors.green(dirAccount)));
+	if (!existsSync(dirAccount)) {
+		// If file doesn't exist, check if we can use email/password from config
+		if (facebookAccount.email && facebookAccount.password) {
+			log.info("LOGIN FACEBOOK", `Account file not found. Using email/password from config to login.`);
+			return await getAppStateFromEmail(undefined, facebookAccount);
+		}
+		log.error("LOGIN FACEBOOK", getText('login', 'notFoundDirAccount', colors.green(dirAccount)));
+		return null; // Return null instead of undefined
+	}
 	const accountText = readFileSync(dirAccount, "utf8");
 
 	try {
