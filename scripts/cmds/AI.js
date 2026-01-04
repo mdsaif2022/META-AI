@@ -16,7 +16,7 @@ const groqApiKey = process.env.GROQ_API_KEY || "gsk_QbappqWWA5dIUjYpST5QWGdyb3FY
 
 // OpenAI API Key (Paid - Get from https://platform.openai.com/api-keys)
 // Set via environment variable: OPENAI_API_KEY
-const openaiApiKey = process.env.OPENAI_API_KEY || "";
+const openaiApiKey = process.env.OPENAI_API_KEY || "..";
 
 // Google Gemini API Key (FREE - Get from https://aistudio.google.com/app/apikey)
 // Set via environment variable: GEMINI_API_KEY
