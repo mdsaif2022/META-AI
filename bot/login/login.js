@@ -268,6 +268,13 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 			// Log the error from getFbstate1 to understand why we're falling back to loginMbasic
 			if (!err.continue) {
 				log.warn("LOGIN FACEBOOK", `getFbstate1 failed: ${err.name || 'Unknown'} - ${err.message || 'No message'}`);
+				// If it's a credential error, don't fall back to loginMbasic (which has bugs)
+				if (err.name === 'WRONG_ACCOUNT' || err.name === 'OLD_PASSWORD' || err.name === 'LOGIN_FAILED') {
+					log.error("LOGIN FACEBOOK", "Login failed. Please check your email and password in config.dev.json");
+					log.error("LOGIN FACEBOOK", "Make sure your email has no spaces and your password is correct.");
+					log.error("LOGIN FACEBOOK", "Alternatively, use an account file (account.dev.txt) with Facebook cookies.");
+					throw err;
+				}
 			}
 			if (err.continue) {
 				let tryNumber = 0;
