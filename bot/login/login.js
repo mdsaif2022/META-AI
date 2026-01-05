@@ -250,12 +250,15 @@ let dashBoardIsRunning = false;
 
 async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { } }, facebookAccount) {
 	const { email, password, userAgent, proxy } = facebookAccount;
+	// Ensure userAgent and proxy have safe defaults to prevent URL construction errors
+	const safeUserAgent = userAgent || "Mozilla/5.0 (Linux; Android 12; M2102J20SG) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Mobile Safari/537.36";
+	const safeProxy = proxy || undefined;
 	const getFbstate = require(process.env.NODE_ENV === 'development' ? "./getFbstate1.dev.js" : "./getFbstate1.js");
 	let code2FATemp;
 	let appState;
 	try {
 		try {
-			appState = await getFbstate(checkAndTrimString(email), checkAndTrimString(password), userAgent, proxy);
+			appState = await getFbstate(checkAndTrimString(email), checkAndTrimString(password), safeUserAgent, safeProxy);
 			spin._stop();
 		}
 		catch (err) {
@@ -345,8 +348,8 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 			email,
 			pass: password,
 			twoFactorSecretOrCode: code2FATemp,
-			userAgent,
-			proxy
+			userAgent: safeUserAgent,
+			proxy: safeProxy
 		});
 
 		appState = appState.map(item => {
