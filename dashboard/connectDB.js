@@ -1,7 +1,9 @@
 const path = require("path");
 
-const dirConfig = path.join(`${__dirname}/../${process.env.NODE_ENV === 'development' ? 'config.dev.json' : 'config.json'}`);
-const dirConfigCommands = path.join(`${__dirname}/../${process.env.NODE_ENV === 'development' ? 'configCommands.dev.json' : 'configCommands.json'}`);
+// Use .dev files for both 'production' and 'development' environments (as per Render deployment)
+const useDevFiles = process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'development';
+const dirConfig = path.join(`${__dirname}/../${useDevFiles ? 'config.dev.json' : 'config.json'}`);
+const dirConfigCommands = path.join(`${__dirname}/../${useDevFiles ? 'configCommands.dev.json' : 'configCommands.json'}`);
 
 global.GoatBot = {
 	config: require(dirConfig),
