@@ -348,51 +348,14 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 	catch (err) {
 		// Don't use broken loginMbasic for credential errors - they've already been handled above
 		if (err.name === 'WRONG_ACCOUNT' || err.name === 'OLD_PASSWORD' || err.name === 'LOGIN_FAILED') {
+			spin._stop();
 			throw err;
 		}
-		const loginMbasic = require(process.env.NODE_ENV === 'development' ? "./loginMbasic.dev.js" : "./loginMbasic.js");
-		if (facebookAccount["2FASecret"]) {
-			switch (['.png', '.jpg', '.jpeg'].some(i => facebookAccount["2FASecret"].endsWith(i))) {
-				case true:
-					code2FATemp = (await qr.readQrCode(`${process.cwd()}/${facebookAccount["2FASecret"]}`)).replace(/.*secret=(.*)&digits.*/g, '$1');
-					break;
-				case false:
-					code2FATemp = facebookAccount["2FASecret"];
-					break;
-			}
-		}
-
-		// Ensure all parameters are defined strings to prevent URL construction errors in obfuscated code
-		const loginParams = {
-			email: String(email || ""),
-			pass: String(password || ""),
-			twoFactorSecretOrCode: String(code2FATemp || ""),
-			userAgent: String(safeUserAgent),
-		};
-		// Only include proxy if it's defined (not null or undefined)
-		if (safeProxy) {
-			loginParams.proxy = String(safeProxy);
-		}
-
-		try {
-			appState = await loginMbasic(loginParams);
-		}
-		catch (loginError) {
-			// If loginMbasic fails with URL construction error, provide better error message
-			if (loginError.message && loginError.message.includes('mbasic.facebook.comundefined')) {
-				log.error("LOGIN FACEBOOK", "Login failed due to URL construction error in loginMbasic. This may be a bug in the login module.");
-				log.error("LOGIN FACEBOOK", `Error details: ${loginError.message}`);
-				throw new Error("Facebook login failed. Please check your email and password in config.dev.json, or use an account file (account.dev.txt) instead.");
-			}
-			throw loginError;
-		}
-
-		appState = appState.map(item => {
-			item.key = item.name;
-			delete item.name;
-			return item;
-		});
-		appState = filterKeysAppState(appState);
+		// loginMbasic has a URL construction bug (mbasic.facebook.comundefined) - completely disabled
+		log.error("LOGIN FACEBOOK", "getFbstate1 failed and loginMbasic fallback is disabled due to bugs.");
+		log.error("LOGIN FACEBOOK", "Please use an account file (account.dev.txt) with Facebook cookies instead.");
+		spin._stop();
+		throw new Error("Facebook login failed. Please use an account file (account.dev.txt) with Facebook cookies, or fix your email/password in config.dev.json");
 	}
 
 	global.GoatBot.config.facebookAccount['2FASecret'] = code2FATemp || "";
