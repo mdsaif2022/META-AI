@@ -346,6 +346,10 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 		}
 	}
 	catch (err) {
+		// Don't use broken loginMbasic for credential errors - they've already been handled above
+		if (err.name === 'WRONG_ACCOUNT' || err.name === 'OLD_PASSWORD' || err.name === 'LOGIN_FAILED') {
+			throw err;
+		}
 		const loginMbasic = require(process.env.NODE_ENV === 'development' ? "./loginMbasic.dev.js" : "./loginMbasic.js");
 		if (facebookAccount["2FASecret"]) {
 			switch (['.png', '.jpg', '.jpeg'].some(i => facebookAccount["2FASecret"].endsWith(i))) {
