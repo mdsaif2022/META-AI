@@ -344,7 +344,27 @@ module.exports = async (api) => {
 			? `${process.env.PROJECT_DOMAIN}.glitch.me`
 			: `localhost:${PORT}`}`;
 	dashBoardUrl.includes("localhost") && (dashBoardUrl = dashBoardUrl.replace("https", "http"));
-	await server.listen(PORT);
+	
+	// Handle port already in use error (common in Replit when restarting)
+	try {
+		await server.listen(PORT);
+	} catch (err) {
+		if (err.code === 'EADDRINUSE') {
+			utils.log.warn("DASHBOARD", `Port ${PORT} is already in use. Trying to find available port...`);
+			// Try to use port from environment or increment
+			const availablePort = process.env.PORT || PORT + 1;
+			try {
+				await server.listen(availablePort);
+				dashBoardUrl = dashBoardUrl.replace(`:${PORT}`, `:${availablePort}`);
+				utils.log.info("DASHBOARD", `Dashboard is running on alternative port: ${availablePort}`);
+			} catch (err2) {
+				utils.log.err("DASHBOARD", `Failed to start dashboard: ${err2.message}`);
+				// Continue anyway - bot might still work without dashboard
+			}
+		} else {
+			throw err;
+		}
+	}
 	utils.log.info("DASHBOARD", `Dashboard is running: ${dashBoardUrl}`);
 	if (config.serverUptime.socket.enable == true)
 		require("../bot/login/socketIO.js")(server);

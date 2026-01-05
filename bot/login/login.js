@@ -853,18 +853,40 @@ async function startBot(loginWithEmail) {
 					errorMessage.includes('unauthorized');
 				
 				if (isCookieError && !loginWithEmail) {
+					// Check if we have cookies in appState (cookies were provided)
+					const hasCookies = appState && Array.isArray(appState) && appState.length > 0;
+					
 					log.err("LOGIN FACEBOOK", "Cookies appear to be invalid, expired, or Facebook is blocking automated access.");
-					if (facebookAccount.email && facebookAccount.password) {
-						log.info("LOGIN FACEBOOK", "Automatically falling back to email/password login...");
+					log.warn("LOGIN FACEBOOK", "Facebook returned a login page, which means cookies are not working.");
+					log.warn("LOGIN FACEBOOK", "This could mean:");
+					log.warn("LOGIN FACEBOOK", "1. Cookies are expired (most common) - GET FRESH COOKIES");
+					log.warn("LOGIN FACEBOOK", "2. Facebook detected automated access from server IP");
+					log.warn("LOGIN FACEBOOK", "3. Account requires verification (check email/SMS)");
+					
+					// If cookies were provided, don't fall back to email/password
+					// Email/password login almost always fails on servers anyway
+					if (hasCookies) {
+						log.err("LOGIN FACEBOOK", "❌ Cookies failed to login. You MUST get FRESH cookies from your browser.");
+						log.warn("LOGIN FACEBOOK", "❌ Email/password login will NOT work on servers - Facebook blocks it.");
+						log.info("LOGIN FACEBOOK", "📋 How to get fresh cookies:");
+						log.info("LOGIN FACEBOOK", "   1. Log into Facebook in your browser (make sure fully logged in)");
+						log.info("LOGIN FACEBOOK", "   2. Press F12 → Network tab → Refresh page (F5)");
+						log.info("LOGIN FACEBOOK", "   3. Click any request → Headers → Find 'Cookie:' header");
+						log.info("LOGIN FACEBOOK", "   4. Copy entire cookie string");
+						log.info("LOGIN FACEBOOK", "   5. Update account.txt file in Replit OR update ACCOUNT_COOKIES in Secrets");
+						log.info("LOGIN FACEBOOK", "   6. Restart the bot");
+						global.statusAccountBot = 'can\'t login';
+						// Don't fall back - cookies are the only way that works on servers
+						return;
+					} else if (facebookAccount.email && facebookAccount.password) {
+						// Only try email/password if no cookies were provided
+						log.warn("LOGIN FACEBOOK", "⚠️  No cookies found. Attempting email/password (likely to fail on servers)...");
+						log.warn("LOGIN FACEBOOK", "⚠️  RECOMMENDED: Use cookies instead (email/password often blocked by Facebook)");
 						global.statusAccountBot = 'can\'t login';
 						return startBot(true);
 					} else {
-						log.err("LOGIN FACEBOOK", "Please get fresh cookies from your browser and update the ACCOUNT_COOKIES environment variable in Render.");
-						log.warn("LOGIN FACEBOOK", "To get fresh cookies:");
-						log.warn("LOGIN FACEBOOK", "1. Log into Facebook in your browser");
-						log.warn("LOGIN FACEBOOK", "2. Open Developer Tools (F12) → Application/Storage → Cookies");
-						log.warn("LOGIN FACEBOOK", "3. Copy all cookies from facebook.com (format: key1=value1;key2=value2;...)");
-						log.warn("LOGIN FACEBOOK", "4. Update ACCOUNT_COOKIES in Render dashboard");
+						log.err("LOGIN FACEBOOK", "❌ No cookies or email/password provided. Cannot login.");
+						log.warn("LOGIN FACEBOOK", "📋 Please get Facebook cookies and update account.txt or ACCOUNT_COOKIES");
 					}
 				}
 				
