@@ -274,6 +274,25 @@ module.exports = async (api) => {
 	});
 	app.get("/uptime", global.responseUptimeCurrent);
 
+	// Health check endpoint for Render and monitoring
+	app.get("/", (req, res) => {
+		res.json({
+			status: "ok",
+			service: "Goat Bot V2",
+			uptime: process.uptime(),
+			timestamp: new Date().toISOString(),
+			botStatus: global.GoatBot?.fcaApi ? "connected" : "starting"
+		});
+	});
+
+	app.get("/health", (req, res) => {
+		res.json({
+			status: "healthy",
+			uptime: process.uptime(),
+			timestamp: new Date().toISOString()
+		});
+	});
+
 	app.get("/changefbstate", isAuthenticated, isVeryfiUserIDFacebook, isAdmin, (req, res) => {
 		res.render("changeFbstate", {
 			currentFbstate: fs.readFileSync(process.cwd() + (process.env.NODE_ENV == "production" || process.env.NODE_ENV == "development" ? "/account.dev.txt" : "/account.txt"), "utf8")
