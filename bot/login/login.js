@@ -205,7 +205,13 @@ qr.readQrCode = async function (filePath) {
 	return value.result;
 };
 
-const { dirAccount } = global.client;
+// Safely get dirAccount from global.client, with fallback
+const dirAccount = global.client?.dirAccount;
+if (!dirAccount) {
+	console.error("[login.js] ERROR: global.client.dirAccount is undefined!");
+	console.error("[login.js] This should not happen. Check Goat.js initialization.");
+	process.exit(1);
+}
 // const { config, configCommands } = global.GoatBot;
 const { facebookAccount } = global.GoatBot.config;
 
@@ -269,10 +275,29 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 			if (!err.continue) {
 				log.warn("LOGIN FACEBOOK", `getFbstate1 failed: ${err.name || 'Unknown'} - ${err.message || 'No message'}`);
 				// If it's a credential error, don't fall back to loginMbasic (which has bugs)
-				if (err.name === 'WRONG_ACCOUNT' || err.name === 'OLD_PASSWORD' || err.name === 'LOGIN_FAILED') {
+				if (err.name === 'WRONG_ACCOUNT' || err.name === 'OLD_PASSWORD') {
 					log.error("LOGIN FACEBOOK", "Login failed. Please check your email and password in config.dev.json");
 					log.error("LOGIN FACEBOOK", "Make sure your email has no spaces and your password is correct.");
-					log.error("LOGIN FACEBOOK", "Alternatively, use an account file (account.dev.txt) with Facebook cookies.");
+					log.error("LOGIN FACEBOOK", "Email in config: " + (email ? email.substring(0, 3) + "***" : "NOT SET"));
+					throw err;
+				}
+				if (err.name === 'LOGIN_FAILED') {
+					log.error("LOGIN FACEBOOK", "Facebook login failed. Possible reasons:");
+					log.error("LOGIN FACEBOOK", "1. Facebook is blocking automated logins from servers");
+					log.error("LOGIN FACEBOOK", "2. Your account needs verification (check your email)");
+					log.error("LOGIN FACEBOOK", "3. Facebook detected suspicious activity");
+					log.error("LOGIN FACEBOOK", "4. Account may be temporarily locked");
+					log.error("LOGIN FACEBOOK", "");
+					log.error("LOGIN FACEBOOK", "SOLUTION: Use Facebook cookies instead of email/password.");
+					log.error("LOGIN FACEBOOK", "1. Log into Facebook in your browser");
+					log.error("LOGIN FACEBOOK", "2. Get cookies from browser (F12 → Application → Cookies)");
+					log.error("LOGIN FACEBOOK", "3. Update ACCOUNT_COOKIES in Render dashboard");
+					throw err;
+				}
+				if (err.name && err.name.startsWith('CHECKPOINT_')) {
+					log.error("LOGIN FACEBOOK", "Your account has been checkpointed by Facebook.");
+					log.error("LOGIN FACEBOOK", "Please log into Facebook in your browser and complete the security check.");
+					log.error("LOGIN FACEBOOK", "After completing the checkpoint, try using cookies instead of email/password.");
 					throw err;
 				}
 			}
@@ -359,7 +384,13 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 	}
 
 	global.GoatBot.config.facebookAccount['2FASecret'] = code2FATemp || "";
-	writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
+	if (global.client && global.client.dirConfig) {
+		try {
+			writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
+		} catch (err) {
+			log.warn("CONFIG", `Failed to write config file: ${err.message}`);
+		}
+	}
 	return appState;
 }
 
@@ -423,6 +454,16 @@ async function getAppStateToLogin(loginWithEmail) {
 		return null; // Return null instead of undefined
 	}
 	const accountText = readFileSync(dirAccount, "utf8");
+	
+	// If account file is empty or only whitespace, use email/password if available
+	if (!accountText || !accountText.trim()) {
+		if (facebookAccount.email && facebookAccount.password) {
+			log.info("LOGIN FACEBOOK", `Account file is empty. Using email/password from config to login.`);
+			return await getAppStateFromEmail(undefined, facebookAccount);
+		}
+		log.error("LOGIN FACEBOOK", `Account file is empty and no email/password configured.`);
+		return null;
+	}
 
 	try {
 		const splitAccountText = accountText.replace(/\|/g, '\n').split('\n').map(i => i.trim()).filter(i => i);
@@ -445,7 +486,8 @@ async function getAppStateToLogin(loginWithEmail) {
 				spin._start();
 				appState = accountText.split(';')
 					.map(i => {
-						const [key, value] = i.split('=');
+						const [key, ...valueParts] = i.split('=');
+						const value = valueParts.join('='); // Handle values that contain '='
 						return {
 							key: (key || "").trim(),
 							value: (value || "").trim(),
@@ -457,6 +499,15 @@ async function getAppStateToLogin(loginWithEmail) {
 						};
 					})
 					.filter(i => i.key && i.value && i.key != "x-referer");
+				
+				// Log parsed cookies for debugging
+				const cookieKeys = appState.map(c => c.key).join(', ');
+				log.info("LOGIN FACEBOOK", `Parsed ${appState.length} cookies: ${cookieKeys}`);
+				const requiredCookies = ['c_user', 'xs', 'datr', 'fr', 'sb'];
+				const missingCookies = requiredCookies.filter(req => !appState.some(c => c.key === req));
+				if (missingCookies.length > 0) {
+					log.warn("LOGIN FACEBOOK", `Missing required cookies: ${missingCookies.join(', ')}`);
+				}
 			}
 			// is netscape cookie
 			else if (isNetScapeCookie(accountText)) {
@@ -475,7 +526,13 @@ async function getAppStateToLogin(loginWithEmail) {
 					const code2FATemp = splitAccountText[2].replace(/ /g, "");
 					global.GoatBot.config.facebookAccount['2FASecret'] = code2FATemp;
 				}
-				writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
+				if (global.client && global.client.dirConfig) {
+					try {
+						writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
+					} catch (err) {
+						log.warn("CONFIG", `Failed to write config file: ${err.message}`);
+					}
+				}
 			}
 			// is json (cookies or appstate)
 			else {
@@ -511,15 +568,39 @@ async function getAppStateToLogin(loginWithEmail) {
 					}))
 					.filter(i => i.key && i.value && i.key != "x-referer");
 			}
-			// Optional cookie validation - let ws3-fca try to use cookies even if validation fails
-			// ws3-fca may be able to refresh or handle expired cookies better
+			// Optional cookie validation - if validation fails and email/password is available, throw error to trigger fallback
 			try {
-				const cookieValid = await checkLiveCookie(appState.map(i => i.key + "=" + i.value).join("; "), facebookAccount.userAgent);
+				const cookieString = appState.map(i => i.key + "=" + i.value).join("; ");
+				log.info("LOGIN FACEBOOK", "Validating cookies...");
+				const cookieValid = await checkLiveCookie(cookieString, facebookAccount.userAgent);
 				if (!cookieValid) {
-					log.warn("LOGIN FACEBOOK", "Cookie validation failed, but will attempt login with ws3-fca anyway");
+					log.warn("LOGIN FACEBOOK", "Cookie validation failed - cookies are expired or invalid");
+					if (facebookAccount.email && facebookAccount.password && !loginWithEmail) {
+						log.info("LOGIN FACEBOOK", "Skipping invalid cookies, will use email/password login instead...");
+						const error = new Error("Cookies failed validation, falling back to email/password");
+						error.name = "COOKIE_INVALID";
+						error.fallbackToEmail = true;
+						throw error;
+					} else {
+						log.warn("LOGIN FACEBOOK", "Will attempt login with ws3-fca anyway, but success is unlikely");
+					}
+				} else {
+					log.info("LOGIN FACEBOOK", "Cookie validation passed");
 				}
 			} catch (err) {
-				log.warn("LOGIN FACEBOOK", "Cookie validation check failed, but will attempt login with ws3-fca anyway");
+				if (err.fallbackToEmail) {
+					throw err; // Re-throw to trigger fallback
+				}
+				log.warn("LOGIN FACEBOOK", `Cookie validation check failed: ${err.message}`);
+				if (facebookAccount.email && facebookAccount.password && !loginWithEmail) {
+					log.info("LOGIN FACEBOOK", "Cookie validation error, will use email/password login instead...");
+					const error = new Error("Cookie validation failed, falling back to email/password");
+					error.name = "COOKIE_INVALID";
+					error.fallbackToEmail = true;
+					throw error;
+				} else {
+					log.warn("LOGIN FACEBOOK", "Will attempt login with ws3-fca anyway");
+				}
 			}
 		}
 	}
@@ -531,8 +612,14 @@ async function getAppStateToLogin(loginWithEmail) {
 		} = facebookAccount;
 		if (err.name === "TOKEN_ERROR")
 			log.err("LOGIN FACEBOOK", getText('login', 'tokenError', colors.green("EAAAA..."), colors.green(dirAccount)));
-		else if (err.name === "COOKIE_INVALID")
+		else if (err.name === "COOKIE_INVALID" || err.fallbackToEmail) {
 			log.err("LOGIN FACEBOOK", getText('login', 'cookieError'));
+			// If cookies failed and email/password is available, fall back to email/password
+			if (err.fallbackToEmail && facebookAccount.email && facebookAccount.password && !loginWithEmail) {
+				log.info("LOGIN FACEBOOK", "Falling back to email/password login as cookies are invalid...");
+				return await getAppStateFromEmail(undefined, facebookAccount);
+			}
+		}
 
 		if (!email || !password) {
 			log.warn("LOGIN FACEBOOK", getText('login', 'cannotFindAccount'));
@@ -564,7 +651,7 @@ async function getAppStateToLogin(loginWithEmail) {
 						const number = parseInt(key.name);
 						if (number >= 0 && number <= options.length)
 							currentOption = number - 1;
-						process.stdout.write('\033[1D'); // delete the character
+						process.stdout.write('\x1b[1D'); // delete the character
 					}
 					else if (key.name === 'enter' || key.name === 'return') {
 						rl.input.removeAllListeners('keypress');
@@ -574,7 +661,7 @@ async function getAppStateToLogin(loginWithEmail) {
 						resolve();
 					}
 					else {
-						process.stdout.write('\033[1D'); // delete the character
+						process.stdout.write('\x1b[1D'); // delete the character
 					}
 
 					clearLines(options.length);
@@ -594,7 +681,13 @@ async function getAppStateToLogin(loginWithEmail) {
 				facebookAccount.email = email || '';
 				facebookAccount.password = password || '';
 				facebookAccount['2FASecret'] = twoFactorAuth || '';
-				writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
+				if (global.client && global.client.dirConfig) {
+					try {
+						writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
+					} catch (err) {
+						log.warn("CONFIG", `Failed to write config file: ${err.message}`);
+					}
+				}
 			}
 			else if (currentOption == 1) {
 				const token = await input(getText('login', 'inputToken') + " ");
@@ -743,9 +836,42 @@ async function startBot(loginWithEmail) {
 
 			// Handle error
 			if (error) {
+				// Check if error indicates invalid/expired cookies
+				const errorMessage = error?.message || error?.toString() || '';
+				const errorString = JSON.stringify(error || {});
+				// Detect if Facebook returned a login page (HTML/JavaScript)
+				const isLoginPage = errorString.includes('function') && 
+					errorString.includes('document') && 
+					errorString.includes('script');
+				const isCookieError = isLoginPage ||
+					errorMessage.includes('login') || 
+					errorString.includes('login') || 
+					errorString.includes('checkpoint') ||
+					errorMessage.includes('Invalid') ||
+					errorMessage.includes('expired') ||
+					errorMessage.includes('authentication') ||
+					errorMessage.includes('unauthorized');
+				
+				if (isCookieError && !loginWithEmail) {
+					log.err("LOGIN FACEBOOK", "Cookies appear to be invalid, expired, or Facebook is blocking automated access.");
+					if (facebookAccount.email && facebookAccount.password) {
+						log.info("LOGIN FACEBOOK", "Automatically falling back to email/password login...");
+						global.statusAccountBot = 'can\'t login';
+						return startBot(true);
+					} else {
+						log.err("LOGIN FACEBOOK", "Please get fresh cookies from your browser and update the ACCOUNT_COOKIES environment variable in Render.");
+						log.warn("LOGIN FACEBOOK", "To get fresh cookies:");
+						log.warn("LOGIN FACEBOOK", "1. Log into Facebook in your browser");
+						log.warn("LOGIN FACEBOOK", "2. Open Developer Tools (F12) → Application/Storage → Cookies");
+						log.warn("LOGIN FACEBOOK", "3. Copy all cookies from facebook.com (format: key1=value1;key2=value2;...)");
+						log.warn("LOGIN FACEBOOK", "4. Update ACCOUNT_COOKIES in Render dashboard");
+					}
+				}
+				
 				log.err("LOGIN FACEBOOK", getText('login', 'loginError'), error);
 				global.statusAccountBot = 'can\'t login';
-				if (facebookAccount.email && facebookAccount.password) {
+				if (facebookAccount.email && facebookAccount.password && !loginWithEmail) {
+					log.info("LOGIN FACEBOOK", "Falling back to email/password login...");
 					return startBot(true);
 				}
 				// —————————— CHECK DASHBOARD —————————— //
@@ -961,8 +1087,25 @@ async function startBot(loginWithEmail) {
 			console.log(`\x1b[1m\x1b[33m${("COPYRIGHT:")}\x1b[0m\x1b[1m\x1b[37m \x1b[0m\x1b[1m\x1b[36m${("Project META AI created by saif vaiya (https://github.com/mdsaif2022), based on GoatBot V2 by NTKhang (https://github.com/ntkhang03/Goat-Bot-V2)")}\x1b[0m`);
 			logColor("#f5ab00", character);
 			global.GoatBot.config.adminBot = adminBot;
-			writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
-			writeFileSync(global.client.dirConfigCommands, JSON.stringify(global.GoatBot.configCommands, null, 2));
+			// Safely write config files - check if global.client is initialized
+			if (global.client && global.client.dirConfig) {
+				try {
+					writeFileSync(global.client.dirConfig, JSON.stringify(global.GoatBot.config, null, 2));
+				} catch (err) {
+					log.warn("CONFIG", `Failed to write config file: ${err.message}`);
+				}
+			} else {
+				log.warn("CONFIG", "global.client.dirConfig is undefined, skipping config file write");
+			}
+			if (global.client && global.client.dirConfigCommands) {
+				try {
+					writeFileSync(global.client.dirConfigCommands, JSON.stringify(global.GoatBot.configCommands, null, 2));
+				} catch (err) {
+					log.warn("CONFIG", `Failed to write config commands file: ${err.message}`);
+				}
+			} else {
+				log.warn("CONFIG", "global.client.dirConfigCommands is undefined, skipping config commands file write");
+			}
 
 			// ——————————————————————————————————————————————————— //
 			const { restartListenMqtt } = global.GoatBot.config;
@@ -1047,6 +1190,13 @@ async function startBot(loginWithEmail) {
 				}
 				global.responseUptimeCurrent = responseUptimeSuccess;
 				global.statusAccountBot = 'good';
+				log.master("LOGIN", "✅ Bot successfully logged in and ready to receive messages!");
+				log.master("LOGIN", `Bot ID: ${api.getCurrentUserID()}`);
+				console.log("========================================");
+				console.log("✅ BOT IS NOW LIVE AND READY!");
+				console.log(`Bot Status: ${global.statusAccountBot}`);
+				console.log(`Bot ID: ${api.getCurrentUserID()}`);
+				console.log("========================================");
 				const configLog = global.GoatBot.config.logEvents;
 				if (isSendNotiErrorMessage == true)
 					isSendNotiErrorMessage = false;
@@ -1158,6 +1308,13 @@ async function startBot(loginWithEmail) {
 					}
 				} else
 					return log.err('GBAN', getText('login', 'youAreBanned'));
+				
+				// Log message received for debugging (only first few to avoid spam)
+				if (!global.messageCount) global.messageCount = 0;
+				global.messageCount++;
+				if (global.messageCount <= 5) {
+					log.info("MESSAGE", `Message #${global.messageCount} received - Type: ${event.type}, ThreadID: ${event.threadID}, SenderID: ${event.senderID || event.userID || 'unknown'}`);
+				}
 			}
 			// ————————————————— CREATE CALLBACK ————————————————— //
 			function createCallBackListen(key) {

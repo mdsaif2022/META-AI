@@ -1,136 +1,143 @@
-# Render Troubleshooting Guide
+# Render Deployment Troubleshooting Guide
 
-## Issue: "No data captured in the last 12 hours" in Metrics
+## 🔍 How to Check if ACCOUNT_COOKIES is Set
 
-This usually means:
-- ❌ Service isn't running
-- ❌ Service crashed after starting
-- ❌ Service isn't receiving/sending network traffic
-- ❌ Deployment didn't complete successfully
+### Step 1: Check Render Logs
 
-## Step-by-Step Troubleshooting
+After deployment, look for these log messages at the START of the logs:
 
-### Step 1: Check Service Status
+```
+========================================
+[Goat.js] ACCOUNT FILE CREATION CHECK
+========================================
+[Goat.js] ACCOUNT_COOKIES env var exists: true/false
+[Goat.js] ACCOUNT_COOKIES length: XXX characters
+```
 
-1. **Go to Render Dashboard** → Your Service
-2. **Look at the top of the page** - what does it say?
-   - ✅ **"Live"** (green) = Service is running
-   - ⚠️ **"Build failed"** = Deployment failed
-   - ⚠️ **"Deploy failed"** = Service failed to start
-   - ⚠️ **"Stopped"** = Service is stopped
+### Step 2: What the Logs Mean
 
-### Step 2: Check Recent Deployments
+#### ✅ If you see:
+```
+[Goat.js] ACCOUNT_COOKIES env var exists: true
+[Goat.js] ACCOUNT_COOKIES length: 200+ characters
+[Goat.js] ✅ account.dev.txt created/updated (XXX bytes)
+```
+**→ ACCOUNT_COOKIES is set correctly!** The bot should work.
 
-1. **Go to "Events" tab** (left sidebar)
-2. **Look at the most recent deployment**:
-   - ✅ **Green checkmark** = Deployment succeeded
-   - ❌ **Red X** = Deployment failed
-3. **Click on the deployment** to see details
+#### ❌ If you see:
+```
+[Goat.js] ACCOUNT_COOKIES env var exists: false
+[Goat.js] ⚠️  ACCOUNT_COOKIES environment variable is NOT SET!
+```
+**→ ACCOUNT_COOKIES is NOT set in Render!** Follow steps below.
 
-### Step 3: Check Logs
+## 🔧 How to Fix ACCOUNT_COOKIES
 
-1. **Go to "Logs" tab** (left sidebar)
-2. **Look for**:
-   - ✅ **"Build successful"** = Build completed
-   - ✅ **"Running 'node index.js'"** = Service started
-   - ✅ **"LOGIN FACEBOOK"** = Bot is trying to log in
-   - ❌ **Error messages** = Something went wrong
-3. **Scroll to the bottom** - these are the most recent logs
+### Step 1: Get Your Facebook Cookies
 
-### Step 4: Common Issues and Fixes
+1. **Log into Facebook** in your browser (the account you want the bot to use)
+2. **Open Developer Tools**: Press `F12` or right-click → Inspect
+3. **Go to Application tab** (Chrome) or **Storage tab** (Firefox)
+4. **Click Cookies** → `https://www.facebook.com`
+5. **Copy all cookies** in this format: `key1=value1;key2=value2;key3=value3;...`
 
-#### Issue: Build Failed
-**Symptoms**: Red X in Events, "Build failed" status
-**Fix**: 
-- Check build logs for errors
-- Common causes: Missing dependencies, Node.js version issues
-- Make sure `package.json` has correct Node.js version
+**Required cookies:**
+- `c_user` (your Facebook user ID)
+- `xs` (session token)
+- `datr` (device token)
+- `fr` (friend request token)
+- `sb` (session browser token)
 
-#### Issue: Service Crashed After Start
-**Symptoms**: Service starts then stops, no recent logs
-**Fix**:
-- Check logs for error messages
-- Common causes: Missing config files, login errors, port binding issues
-- Make sure `ACCOUNT_COOKIES` environment variable is set
+### Step 2: Set ACCOUNT_COOKIES in Render
 
-#### Issue: Service Running But No Traffic
-**Symptoms**: Service shows "Live" but no network metrics
-**Fix**:
-- This is normal for a bot that doesn't serve web traffic
-- Check if bot is actually working (check logs for login success)
-- Network metrics only show HTTP traffic, not bot activity
+1. Go to **Render Dashboard** → Your service (`goat-bot-v2`)
+2. Click **"Environment"** in the left sidebar
+3. **Check if `ACCOUNT_COOKIES` exists:**
+   - If it exists → Click **"Edit"** → Update the value
+   - If it doesn't exist → Click **"Add Environment Variable"**
+4. **Set the variable:**
+   - **Key**: `ACCOUNT_COOKIES`
+   - **Value**: Paste your cookie string (no quotes, no spaces at start/end)
+5. Click **"Save Changes"**
+6. Render will **automatically redeploy**
 
-### Step 5: Verify Bot is Working
+### Step 3: Verify After Redeployment
 
-Even if network metrics show "No data", the bot might still be working. Check:
+Check the logs again. You should now see:
+```
+[Goat.js] ACCOUNT_COOKIES env var exists: true
+[Goat.js] ✅ account.dev.txt created/updated
+```
 
-1. **Logs tab** - Look for:
-   - `LOGIN FACEBOOK: Login in progress`
-   - `LOGIN FACEBOOK: Login successful` (or similar)
+## 🚨 Common Issues
+
+### Issue 1: "Account file not found"
+
+**Cause:** ACCOUNT_COOKIES is not set or empty
+
+**Solution:**
+1. Check Render → Environment → ACCOUNT_COOKIES
+2. Make sure it's set and not empty
+3. Redeploy
+
+### Issue 2: "Cookies appear to be invalid or expired"
+
+**Cause:** Cookies are old or invalid
+
+**Solution:**
+1. Get **fresh cookies** from your browser
+2. Update ACCOUNT_COOKIES in Render
+3. Redeploy
+
+### Issue 3: "Login failed" with email/password
+
+**Cause:** Facebook blocks automated logins from servers
+
+**Solution:**
+- **Use cookies instead** (recommended)
+- Cookies are more reliable for server deployments
+- Get fresh cookies and set ACCOUNT_COOKIES
+
+### Issue 4: Bot keeps trying email/password
+
+**Cause:** Account file exists but is empty, or ACCOUNT_COOKIES not set
+
+**Solution:**
+1. Set ACCOUNT_COOKIES in Render
+2. The bot will automatically create account.dev.txt
+3. Check logs to verify file creation
+
+## 📋 Checklist
+
+Before reporting issues, check:
+
+- [ ] ACCOUNT_COOKIES is set in Render → Environment
+- [ ] ACCOUNT_COOKIES value is not empty
+- [ ] ACCOUNT_COOKIES contains all required cookies (c_user, xs, datr, fr, sb)
+- [ ] Cookies are fresh (not expired)
+- [ ] Logs show `[Goat.js] ACCOUNT_COOKIES env var exists: true`
+- [ ] Logs show `✅ account.dev.txt created/updated`
+- [ ] Render service is on **paid plan** (starter or higher) for 24/7 uptime
+
+## 🆘 Still Not Working?
+
+If the bot still doesn't work after following all steps:
+
+1. **Check the full Render logs** from the beginning
+2. **Look for** `[Goat.js]` messages at the start
+3. **Share the logs** showing:
+   - Whether ACCOUNT_COOKIES exists
+   - Whether account.dev.txt was created
    - Any error messages
 
-2. **If bot logged in successfully**, it's working even without network metrics
+## 📝 Example Cookie String Format
 
-## What Network Metrics Actually Show
+```
+ps_l=1;datr=XXX;fr=XXX;xs=XXX;c_user=123456789;presence=XXX;dpr=2;oo=v1;ps_n=1;sb=XXX;wd=320x615
+```
 
-**Network Metrics** only show:
-- ✅ HTTP requests to your service (dashboard, API calls)
-- ✅ Outbound requests your service makes
-
-**Network Metrics DON'T show**:
-- ❌ Bot's Facebook API calls (those go through Facebook's servers)
-- ❌ Internal bot activity
-- ❌ Message processing
-
-**So "No data" is NORMAL if:**
-- ✅ Bot is running and logged in
-- ✅ Bot is processing messages
-- ✅ But not receiving HTTP requests
-
-## How to Verify Bot is Actually Working
-
-### Method 1: Check Logs
-1. Go to **"Logs" tab**
-2. Look for successful login messages
-3. Look for bot activity (message processing, etc.)
-
-### Method 2: Test Dashboard (if enabled)
-1. Go to your service URL: `https://your-bot-name.onrender.com`
-2. If dashboard loads = Service is running
-3. If you see bot stats = Bot is working
-
-### Method 3: Send a Test Message
-1. Send a message to your bot on Facebook
-2. Check logs to see if bot received it
-3. If bot responds = It's working!
-
-## Quick Health Check
-
-Run through this checklist:
-
-- [ ] Service status shows "Live" (green)
-- [ ] Most recent deployment shows green checkmark
-- [ ] Logs show bot started (`Running 'node index.js'`)
-- [ ] Logs show login attempt or success
-- [ ] No error messages in recent logs
-- [ ] Service URL responds (if dashboard is enabled)
-
-If all checked = **Bot is working!** (Network metrics don't matter)
-
-## Still Having Issues?
-
-If service shows errors:
-1. **Copy the error message** from logs
-2. **Check common errors**:
-   - Missing `ACCOUNT_COOKIES` → Add environment variable
-   - Login failed → Check cookies are valid
-   - Port binding error → Check dashboard configuration
-   - Build errors → Check Node.js version and dependencies
-
-## Need Help?
-
-Share:
-1. Service status (Live/Failed/Stopped)
-2. Recent deployment status (Success/Failed)
-3. Last few lines of logs (especially any errors)
-
+**Important:**
+- No spaces around `=`
+- Separate cookies with `;`
+- No quotes needed
+- Include ALL cookies from facebook.com

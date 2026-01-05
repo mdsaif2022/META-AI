@@ -51,6 +51,63 @@ const dirConfig = path.normalize(`${__dirname}/config${['production', 'developme
 const dirConfigCommands = path.normalize(`${__dirname}/configCommands${['production', 'development'].includes(NODE_ENV) ? '.dev.json' : '.json'}`);
 const dirAccount = path.normalize(`${__dirname}/account${['production', 'development'].includes(NODE_ENV) ? '.dev.txt' : '.txt'}`);
 
+// Ensure account file is created from ACCOUNT_COOKIES environment variable at runtime
+// This is important for Render where env vars might not be available during build
+console.log("========================================");
+console.log("[Goat.js] ACCOUNT FILE CREATION CHECK");
+console.log("========================================");
+console.log(`[Goat.js] NODE_ENV: ${NODE_ENV}`);
+console.log(`[Goat.js] Account file path: ${dirAccount}`);
+console.log(`[Goat.js] Account file exists (before): ${fs.existsSync(dirAccount)}`);
+console.log(`[Goat.js] ACCOUNT_COOKIES env var exists: ${!!process.env.ACCOUNT_COOKIES}`);
+if (process.env.ACCOUNT_COOKIES) {
+	console.log(`[Goat.js] ACCOUNT_COOKIES length: ${process.env.ACCOUNT_COOKIES.length} characters`);
+	console.log(`[Goat.js] ACCOUNT_COOKIES first 50 chars: ${process.env.ACCOUNT_COOKIES.substring(0, 50)}...`);
+} else {
+	console.log(`[Goat.js] ⚠️  ACCOUNT_COOKIES environment variable is NOT SET!`);
+	console.log(`[Goat.js] ⚠️  Please set ACCOUNT_COOKIES in Render dashboard → Environment`);
+}
+
+if (process.env.ACCOUNT_COOKIES && process.env.ACCOUNT_COOKIES.trim()) {
+	const accountCookies = process.env.ACCOUNT_COOKIES.trim();
+	try {
+		const existingContent = fs.existsSync(dirAccount) ? fs.readFileSync(dirAccount, 'utf8').trim() : '';
+		if (existingContent !== accountCookies) {
+			console.log(`[Goat.js] Creating/updating ${path.basename(dirAccount)} from ACCOUNT_COOKIES...`);
+			log.info("ACCOUNT FILE", `Creating/updating ${path.basename(dirAccount)} from ACCOUNT_COOKIES environment variable...`);
+			log.info("ACCOUNT FILE", `Cookie length: ${accountCookies.length} characters`);
+			fs.writeFileSync(dirAccount, accountCookies, 'utf8');
+			const fileSize = fs.statSync(dirAccount).size;
+			console.log(`[Goat.js] ✅ ${path.basename(dirAccount)} created/updated (${fileSize} bytes)`);
+			log.info("ACCOUNT FILE", `✅ ${path.basename(dirAccount)} created/updated (${fileSize} bytes) from environment variable`);
+		} else {
+			console.log(`[Goat.js] ✅ ${path.basename(dirAccount)} already exists and matches ACCOUNT_COOKIES`);
+			log.info("ACCOUNT FILE", `✅ ${path.basename(dirAccount)} already exists and matches ACCOUNT_COOKIES`);
+		}
+		// Verify file was created
+		if (fs.existsSync(dirAccount)) {
+			const verifySize = fs.statSync(dirAccount).size;
+			const verifyContent = fs.readFileSync(dirAccount, 'utf8').substring(0, 50);
+			console.log(`[Goat.js] ✅ Verification: ${path.basename(dirAccount)} exists (${verifySize} bytes)`);
+			console.log(`[Goat.js] ✅ File content preview: ${verifyContent}...`);
+		} else {
+			console.log(`[Goat.js] ❌ ERROR: ${path.basename(dirAccount)} was not created!`);
+			log.error("ACCOUNT FILE", `❌ ERROR: ${path.basename(dirAccount)} was not created!`);
+		}
+	} catch (err) {
+		console.log(`[Goat.js] ❌ Error creating account file: ${err.message}`);
+		console.log(`[Goat.js] Error stack: ${err.stack}`);
+		log.error("ACCOUNT FILE", `Error creating account file: ${err.message}`);
+	}
+} else {
+	console.log(`[Goat.js] ⚠️  ACCOUNT_COOKIES environment variable not set or empty`);
+	console.log(`[Goat.js] ⚠️  Bot will try to use email/password from config.dev.json`);
+	console.log(`[Goat.js] ⚠️  If email/password fails, you MUST set ACCOUNT_COOKIES in Render`);
+	log.warn("ACCOUNT FILE", `ACCOUNT_COOKIES environment variable not set. Account file will not be created from env var.`);
+}
+console.log(`[Goat.js] Account file exists (after): ${fs.existsSync(dirAccount)}`);
+console.log("========================================");
+
 for (const pathDir of [dirConfig, dirConfigCommands]) {
 	try {
 		validJSON(pathDir);
