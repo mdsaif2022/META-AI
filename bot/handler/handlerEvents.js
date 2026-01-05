@@ -182,6 +182,10 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 			} else {
 				try {
 					threadData = await threadsData.create(threadID);
+					// Ensure receivedTheFirstMessage exists
+					if (!global.db.receivedTheFirstMessage) {
+						global.db.receivedTheFirstMessage = {};
+					}
 					global.db.receivedTheFirstMessage[threadID] = true;
 				} catch (err) {
 					// If creation fails for 1:1 chat, create minimal threadData
@@ -205,10 +209,15 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 		else {
 			if (
 				autoRefreshThreadInfoFirstTime === true
-				&& !global.db.receivedTheFirstMessage[threadID]
 			) {
-				global.db.receivedTheFirstMessage[threadID] = true;
-				await threadsData.refreshInfo(threadID);
+				// Ensure receivedTheFirstMessage exists
+				if (!global.db.receivedTheFirstMessage) {
+					global.db.receivedTheFirstMessage = {};
+				}
+				if (!global.db.receivedTheFirstMessage[threadID]) {
+					global.db.receivedTheFirstMessage[threadID] = true;
+					await threadsData.refreshInfo(threadID);
+				}
 			}
 		}
 
@@ -310,6 +319,14 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
 				}
 			}
 			// ———————————————— countDown ———————————————— //
+			// Ensure client and client.countDown exist
+			if (!client) {
+				log.warn("HANDLER", "global.client is undefined, initializing...");
+				global.client = { countDown: {} };
+			}
+			if (!client.countDown) {
+				client.countDown = {};
+			}
 			if (!client.countDown[commandName])
 				client.countDown[commandName] = {};
 			const timestamps = client.countDown[commandName];

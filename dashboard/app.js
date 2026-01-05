@@ -209,6 +209,26 @@ module.exports = async (api) => {
 		res.render("home");
 	});
 
+	// Health check endpoint for Render
+	app.get("/health", (req, res) => {
+		const botStatus = global.statusAccountBot || 'unknown';
+		const isListening = global.GoatBot?.Listening ? 'active' : 'inactive';
+		const uptime = process.uptime();
+		const loginStatus = botStatus === 'good' ? 'logged_in' : 'not_logged_in';
+		
+		res.status(200).json({
+			status: 'ok',
+			bot: {
+				status: botStatus,
+				listening: isListening,
+				loginStatus: loginStatus,
+				uptime: Math.floor(uptime),
+				uptimeFormatted: `${Math.floor(uptime / 60)}m ${Math.floor(uptime % 60)}s`
+			},
+			timestamp: new Date().toISOString()
+		});
+	});
+
 	app.get("/stats", async (req, res) => {
 		let fcaVersion;
 		try {
