@@ -262,6 +262,10 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 			spin._stop();
 		}
 		catch (err) {
+			// Log the error from getFbstate1 to understand why we're falling back to loginMbasic
+			if (!err.continue) {
+				log.warn("LOGIN FACEBOOK", `getFbstate1 failed: ${err.name || 'Unknown'} - ${err.message || 'No message'}`);
+			}
 			if (err.continue) {
 				let tryNumber = 0;
 				let isExit = false;
