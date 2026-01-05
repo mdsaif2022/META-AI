@@ -249,7 +249,10 @@ let dashBoardIsRunning = false;
 
 
 async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { } }, facebookAccount) {
-	const { email, password, userAgent, proxy } = facebookAccount;
+	let { email, password, userAgent, proxy } = facebookAccount;
+	// Clean email - remove spaces and trim
+	email = (email || "").trim().replace(/\s+/g, "");
+	password = (password || "").trim();
 	// Ensure userAgent and proxy have safe defaults to prevent URL construction errors
 	const safeUserAgent = userAgent || "Mozilla/5.0 (Linux; Android 12; M2102J20SG) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Mobile Safari/537.36";
 	const safeProxy = proxy || undefined;
