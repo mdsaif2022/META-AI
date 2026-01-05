@@ -569,38 +569,27 @@ async function getAppStateToLogin(loginWithEmail) {
 					.filter(i => i.key && i.value && i.key != "x-referer");
 			}
 			// Optional cookie validation - if validation fails and email/password is available, throw error to trigger fallback
+			// Optional cookie validation - try to validate but don't fail if validation doesn't work
+			// Facebook may block validation requests from server IPs, so we'll try the cookies anyway
+			// Only ws3-fca can truly determine if cookies are valid
 			try {
 				const cookieString = appState.map(i => i.key + "=" + i.value).join("; ");
 				log.info("LOGIN FACEBOOK", "Validating cookies...");
 				const cookieValid = await checkLiveCookie(cookieString, facebookAccount.userAgent);
 				if (!cookieValid) {
-					log.warn("LOGIN FACEBOOK", "Cookie validation failed - cookies are expired or invalid");
-					if (facebookAccount.email && facebookAccount.password && !loginWithEmail) {
-						log.info("LOGIN FACEBOOK", "Skipping invalid cookies, will use email/password login instead...");
-						const error = new Error("Cookies failed validation, falling back to email/password");
-						error.name = "COOKIE_INVALID";
-						error.fallbackToEmail = true;
-						throw error;
-					} else {
-						log.warn("LOGIN FACEBOOK", "Will attempt login with ws3-fca anyway, but success is unlikely");
-					}
+					log.warn("LOGIN FACEBOOK", "Cookie validation check returned false - this may be a false negative");
+					log.warn("LOGIN FACEBOOK", "Facebook often blocks validation requests from server IPs");
+					log.info("LOGIN FACEBOOK", "Will attempt to use cookies anyway - ws3-fca will determine if they're actually valid");
+					// Don't throw error - let ws3-fca try the cookies
+					// Only fall back to email/password if ws3-fca login actually fails
 				} else {
-					log.info("LOGIN FACEBOOK", "Cookie validation passed");
+					log.info("LOGIN FACEBOOK", "Cookie validation passed - cookies appear to be valid");
 				}
 			} catch (err) {
-				if (err.fallbackToEmail) {
-					throw err; // Re-throw to trigger fallback
-				}
-				log.warn("LOGIN FACEBOOK", `Cookie validation check failed: ${err.message}`);
-				if (facebookAccount.email && facebookAccount.password && !loginWithEmail) {
-					log.info("LOGIN FACEBOOK", "Cookie validation error, will use email/password login instead...");
-					const error = new Error("Cookie validation failed, falling back to email/password");
-					error.name = "COOKIE_INVALID";
-					error.fallbackToEmail = true;
-					throw error;
-				} else {
-					log.warn("LOGIN FACEBOOK", "Will attempt login with ws3-fca anyway");
-				}
+				log.warn("LOGIN FACEBOOK", `Cookie validation error (non-fatal): ${err.message}`);
+				log.info("LOGIN FACEBOOK", "Will attempt to use cookies anyway - validation errors are often false negatives on server IPs");
+				// Continue with login attempt even if validation fails
+				// Don't throw error - let ws3-fca try the cookies
 			}
 		}
 	}
@@ -614,11 +603,8 @@ async function getAppStateToLogin(loginWithEmail) {
 			log.err("LOGIN FACEBOOK", getText('login', 'tokenError', colors.green("EAAAA..."), colors.green(dirAccount)));
 		else if (err.name === "COOKIE_INVALID" || err.fallbackToEmail) {
 			log.err("LOGIN FACEBOOK", getText('login', 'cookieError'));
-			// If cookies failed and email/password is available, fall back to email/password
-			if (err.fallbackToEmail && facebookAccount.email && facebookAccount.password && !loginWithEmail) {
-				log.info("LOGIN FACEBOOK", "Falling back to email/password login as cookies are invalid...");
-				return await getAppStateFromEmail(undefined, facebookAccount);
-			}
+			// Don't automatically fall back - let ws3-fca try cookies first
+			// Fallback logic is now handled in the ws3Login error handler
 		}
 
 		if (!email || !password) {
@@ -892,9 +878,15 @@ async function startBot(loginWithEmail) {
 				
 				log.err("LOGIN FACEBOOK", getText('login', 'loginError'), error);
 				global.statusAccountBot = 'can\'t login';
-				if (facebookAccount.email && facebookAccount.password && !loginWithEmail) {
-					log.info("LOGIN FACEBOOK", "Falling back to email/password login...");
+				// Only fall back to email/password if no cookies were provided
+				const hasCookies = appState && Array.isArray(appState) && appState.length > 0;
+				if (!hasCookies && facebookAccount.email && facebookAccount.password && !loginWithEmail) {
+					log.warn("LOGIN FACEBOOK", "⚠️  No cookies found. Attempting email/password (likely to fail on servers)...");
+					log.warn("LOGIN FACEBOOK", "⚠️  RECOMMENDED: Use cookies instead for server deployments");
 					return startBot(true);
+				} else if (hasCookies) {
+					log.err("LOGIN FACEBOOK", "❌ Login failed with cookies. Please get FRESH cookies and try again.");
+					log.warn("LOGIN FACEBOOK", "📋 See instructions above for getting fresh cookies from your browser.");
 				}
 				// —————————— CHECK DASHBOARD —————————— //
 				// Dashboard should already be started before login attempt
