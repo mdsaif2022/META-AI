@@ -344,13 +344,19 @@ async function getAppStateFromEmail(spin = { _start: () => { }, _stop: () => { }
 			}
 		}
 
-		appState = await loginMbasic({
-			email,
-			pass: password,
-			twoFactorSecretOrCode: code2FATemp,
+		// Ensure all parameters are defined to prevent URL construction errors in obfuscated code
+		const loginParams = {
+			email: email || "",
+			pass: password || "",
+			twoFactorSecretOrCode: code2FATemp || "",
 			userAgent: safeUserAgent,
-			proxy: safeProxy
-		});
+		};
+		// Only include proxy if it's defined (not null or undefined)
+		if (safeProxy) {
+			loginParams.proxy = safeProxy;
+		}
+
+		appState = await loginMbasic(loginParams);
 
 		appState = appState.map(item => {
 			item.key = item.name;
