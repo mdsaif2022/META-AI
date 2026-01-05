@@ -662,12 +662,34 @@ async function startBot(loginWithEmail) {
 	if (global.GoatBot.Listening)
 		await stopListening();
 
+	// —————————— START DASHBOARD EARLY —————————— //
+	// Start dashboard BEFORE login so it's always available, even if login fails
+	// This ensures Render can detect the port binding
+	if (global.GoatBot.config.dashBoard?.enable == true && !global.dashBoardStarted) {
+		try {
+			log.info("DASHBOARD", "Starting dashboard before login...");
+			await require("../../dashboard/app.js")(null);
+			global.dashBoardStarted = true;
+			log.info("DASHBOARD", getText('login', 'openDashboardSuccess'));
+		}
+		catch (err) {
+			log.err("DASHBOARD", getText('login', 'openDashboardError'), err);
+			// Don't exit - continue with login attempt even if dashboard fails
+		}
+	}
+
 	log.info("LOGIN FACEBOOK", getText('login', 'currentlyLogged'));
 
 	let appState = await getAppStateToLogin(loginWithEmail);
 	if (!appState || !Array.isArray(appState)) {
 		log.err("LOGIN FACEBOOK", "Failed to get app state. Please check your account file or email/password in config.");
-		process.exit(1);
+		// Don't exit if dashboard is running - let it continue serving health checks
+		if (!global.dashBoardStarted) {
+			process.exit(1);
+		} else {
+			log.warn("LOGIN FACEBOOK", "Login failed but dashboard is running. Bot will not function until login succeeds.");
+			return;
+		}
 	}
 	changeFbStateByCode = true;
 	appState = filterKeysAppState(appState);
@@ -727,13 +749,19 @@ async function startBot(loginWithEmail) {
 					return startBot(true);
 				}
 				// —————————— CHECK DASHBOARD —————————— //
+				// Dashboard should already be started before login attempt
 				if (global.GoatBot.config.dashBoard?.enable == true) {
-					try {
-						await require("../../dashboard/app.js")(null);
-						log.info("DASHBOARD", getText('login', 'openDashboardSuccess'));
-					}
-					catch (err) {
-						log.err("DASHBOARD", getText('login', 'openDashboardError'), err);
+					if (!global.dashBoardStarted) {
+						try {
+							await require("../../dashboard/app.js")(null);
+							global.dashBoardStarted = true;
+							log.info("DASHBOARD", getText('login', 'openDashboardSuccess'));
+						}
+						catch (err) {
+							log.err("DASHBOARD", getText('login', 'openDashboardError'), err);
+						}
+					} else {
+						log.info("DASHBOARD", "Dashboard is already running");
 					}
 					return;
 				}
@@ -890,15 +918,23 @@ async function startBot(loginWithEmail) {
 				});
 			}
 			// ——————————————————— DASHBOARD ——————————————————— //
+			// Dashboard may already be started before login - only start if not already running
 			if (global.GoatBot.config.dashBoard?.enable == true && dashBoardIsRunning == false) {
-				logColor('#f5ab00', createLine('DASHBOARD'));
-				try {
-					await require("../../dashboard/app.js")(api);
-					log.info("DASHBOARD", getText('login', 'openDashboardSuccess'));
-					dashBoardIsRunning = true;
-				}
-				catch (err) {
-					log.err("DASHBOARD", getText('login', 'openDashboardError'), err);
+				// If dashboard was already started before login, skip restart
+				// The dashboard will continue running, but without API features until next restart
+				if (global.dashBoardStarted) {
+					log.info("DASHBOARD", "Dashboard is already running. API features will be limited until restart.");
+				} else {
+					logColor('#f5ab00', createLine('DASHBOARD'));
+					try {
+						await require("../../dashboard/app.js")(api);
+						log.info("DASHBOARD", getText('login', 'openDashboardSuccess'));
+						dashBoardIsRunning = true;
+						global.dashBoardStarted = true;
+					}
+					catch (err) {
+						log.err("DASHBOARD", getText('login', 'openDashboardError'), err);
+					}
 				}
 			}
 			// ———————————————————— ADMIN BOT ———————————————————— //
