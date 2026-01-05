@@ -19,6 +19,7 @@ test.js
 account.txt
 account.dev.txt
 config.json
+COOKIE_STRING_FOR_RENDER.txt
 # config.dev.json - ALLOWED (needed for Render deployment, contains template values)
 # configCommands.dev.json - ALLOWED (needed for Render deployment, contains template values)
 *.log
