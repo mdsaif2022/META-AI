@@ -4,7 +4,7 @@ services:
     runtime: node
     buildCommand: npm install && node create-account-file.js
     startCommand: node index.js
-    plan: free
+    plan: starter  # Paid tier - always-on, no sleep
     envVars:
       - key: NODE_ENV
         value: production
